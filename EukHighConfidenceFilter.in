@@ -402,25 +402,33 @@ sub euk_anticodon_filter
 	my ($ac_count, $tRNA) = @_;
 	my $tag = "";
 	
-	if (!defined $euk_aa_list{$tRNA->anticodon()} and !$tRNA->is_pseudo())
+	if (!$tRNA->is_pseudo())
 	{
-		my $alt_anticodon = $tRNA->anticodon();
-		if (substr($tRNA->anticodon(), 0, 1) eq "A")
-		{
-			$alt_anticodon = "G".substr($tRNA->anticodon(), 1);
-		}
-		elsif (substr($tRNA->anticodon(), 0, 1) eq "G")
-		{
-			$alt_anticodon = "A".substr($tRNA->anticodon(), 1);
-		}
-		
-		if (defined $aa_list{$tRNA->anticodon()} and defined $aa_list{$alt_anticodon} and defined $euk_aa_list{$alt_anticodon} and
-			$ac_count->{$tRNA->anticodon()} > $ac_count->{$alt_anticodon})
-		{}
-		else
+		if ($tRNA->isotype() eq "Sup")
 		{
 			$tag = "unexpected anticodon";
 			$tRNA_counts{ac_filter}++;
+		}		
+		elsif (!defined $euk_aa_list{$tRNA->anticodon()})
+		{
+			my $alt_anticodon = $tRNA->anticodon();
+			if (substr($tRNA->anticodon(), 0, 1) eq "A")
+			{
+				$alt_anticodon = "G".substr($tRNA->anticodon(), 1);
+			}
+			elsif (substr($tRNA->anticodon(), 0, 1) eq "G")
+			{
+				$alt_anticodon = "A".substr($tRNA->anticodon(), 1);
+			}
+			
+			if (defined $aa_list{$tRNA->anticodon()} and defined $aa_list{$alt_anticodon} and defined $euk_aa_list{$alt_anticodon} and
+				$ac_count->{$tRNA->anticodon()} > $ac_count->{$alt_anticodon})
+			{}
+			else
+			{
+				$tag = "unexpected anticodon";
+				$tRNA_counts{ac_filter}++;
+			}
 		}
 	}
 	
@@ -762,7 +770,7 @@ sub write_out_file
 				elsif (!$tRNA->is_pseudo())
 				{
 					$include = 1;
-					if ($columns[$header{note}] =~ /IPD/)
+					if ($columns[$header{note}] =~ /IPD/ and $columns[$header{isotype}] ne "Sup")
 					{
 						$tRNA_counts{iso_filter}++;
 						$tag = "isotype mismatch";

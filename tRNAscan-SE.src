@@ -1,10 +1,10 @@
-#! /usr/bin/perl
+#! @PERL@
 #
 # --------------------------------------------------------------------
 # tRNAscan-SE: a program for improved detection of transfer RNA
 #              genes in genomic sequence
 #
-# Version 2.0
+# Version 2.0.1
 #
 # Copyright (C) 2017 Patricia Chan and Todd Lowe 
 #
@@ -39,8 +39,8 @@ use tRNAscanSE::IntResultFile;
 use tRNAscanSE::MultiResultFile;
 use tRNAscanSE::SS;
 
-our $version = "2.0"; 
-our $release_date = "December 2017";
+our $version = "2.0.1"; 
+our $release_date = "March 2018";
 our $program_id = "tRNAscan-SE-".$version;
 
 # modified by 'make'
@@ -126,7 +126,7 @@ if (($stats->numscanned() == 0) && ($opts->eufind_mode() || $opts->tscan_mode() 
     }
     else
     {
-        die "\nFATAL: No sequences in FASTA format found in file ".$opts->fastafile()."\n\n";
+        die "\nFATAL: No sequences in FASTA format found in file ".$opts->fasta_file()."\n\n";
     }
 }
 

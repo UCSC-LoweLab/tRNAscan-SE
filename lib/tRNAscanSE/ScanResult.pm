@@ -312,6 +312,19 @@ sub output_tRNA
 			{
 				$tRNA->isotype($model);
 			}
+			elsif ($tRNA->isotype() eq "Met" and $type eq "cyto" and $model ne "Met" and $model ne "iMet" and $model ne "fMet")
+			{
+				$tRNA->sort_multi_models("model");
+				my ($met_iso_model, $met_iso_score, $met_iso_ss) = $tRNA->get_model_hit("cyto", $tRNA->isotype());
+				my ($ile2_iso_model, $ile2_iso_score, $ile2_iso_ss) = $tRNA->get_model_hit("cyto", "Ile2");
+				if ($ile2_iso_score > 0 and $met_iso_score > 0)
+				{
+					if (($score - $ile2_iso_score) <= 5 and ($ile2_iso_score - $met_iso_score) >= 5 and $tRNA->score() > 50)
+					{
+						$tRNA->isotype("Ile2");
+					}
+				}
+			}
 			
 			if (!$opts->results_to_stdout())
 			{
@@ -1000,6 +1013,20 @@ sub write_bed
 					{
 						$tRNA->isotype($model);
 						$tRNA->tRNAscan_id($tRNA->seqname().".tRNA".$tRNA->id()."-".$tRNA->isotype().$tRNA->anticodon());
+					}
+					elsif ($tRNA->isotype() eq "Met" and $type eq "cyto" and $model ne "Met" and $model ne "iMet" and $model ne "fMet")
+					{
+						$tRNA->sort_multi_models("model");
+						my ($met_iso_model, $met_iso_score, $met_iso_ss) = $tRNA->get_model_hit("cyto", $tRNA->isotype());
+						my ($ile2_iso_model, $ile2_iso_score, $ile2_iso_ss) = $tRNA->get_model_hit("cyto", "Ile2");
+						if ($ile2_iso_score > 0 and $met_iso_score > 0)
+						{
+							if (($score - $ile2_iso_score) <= 5 and ($ile2_iso_score - $met_iso_score) >= 5 and $tRNA->score() > 50)
+							{
+								$tRNA->isotype("Ile2");
+								$tRNA->tRNAscan_id($tRNA->seqname().".tRNA".$tRNA->id()."-".$tRNA->isotype().$tRNA->anticodon());
+							}
+						}
 					}
 				}				
 			}			
