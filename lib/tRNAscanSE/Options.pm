@@ -813,10 +813,20 @@ sub display_run_options
         }
     }
 
-    if ($cm->cm_cutoff() != $global_constants->get("cm_cutoff"))
-    {
-        print $FHAND "tRNA covariance model search       \n"."    cutoff score:                  ".$cm->cm_cutoff()."\n";
-    }
+#    if ($self->mito_mode())
+#    {
+#        if ($cm->organelle_cm_cutoff() != $global_constants->get("organelle_cm_cutoff"))
+#        {
+#            print $FHAND "tRNA covariance model search       \n"."    cutoff score:                  ".$cm->organelle_cm_cutoff()."\n";
+#        }        
+#    }
+#    else
+#    {
+        if ($cm->cm_cutoff() != $global_constants->get("cm_cutoff"))
+        {
+            print $FHAND "tRNA covariance model search       \n"."    cutoff score:                  ".$cm->cm_cutoff()."\n";
+        }
+#    }
 
     if ($self->{use_prev_ts_run})
     {

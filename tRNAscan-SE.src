@@ -4,7 +4,7 @@
 # tRNAscan-SE: a program for improved detection of transfer RNA
 #              genes in genomic sequence
 #
-# Version 2.0.3
+# Version 2.0.4
 #
 # Copyright (C) 2019 Patricia Chan and Todd Lowe 
 #
@@ -39,8 +39,8 @@ use tRNAscanSE::IntResultFile;
 use tRNAscanSE::MultiResultFile;
 use tRNAscanSE::SS;
 
-our $version = "2.0.3"; 
-our $release_date = "April 2019";
+our $version = "2.0.4"; 
+our $release_date = "September 2019";
 our $program_id = "tRNAscan-SE-".$version;
 
 # modified by 'make'
@@ -1520,7 +1520,7 @@ sub set_options
     # do max scan 
     if ($opt_max != 0)
     {                       
-        if ($opt_eufind || $opt_tscan || $opt_cove || $opt_legacy || $opt_mid)
+        if ($opt_eufind || $opt_tscan || $opt_cove || $opt_legacy || ($opt_mid and $opt_mito != 0))
         {
             die "FATAL: Conflicting search options have been selected. --max, -t, -e, -C, and -L cannot be used simultaneously.\n";
         }
@@ -1531,6 +1531,10 @@ sub set_options
         {
             $opts->infernal_fp(0);
         }
+	elsif ($opt_mito)
+	{
+	    $opt_mid = 0;
+	}
     }
     
     # set hmm filter flag for infernal
@@ -1875,8 +1879,8 @@ sub set_options
         $cm->cm_cutoff($opt_score);
         if ($opt_score < $cm->infernal_fp_cutoff())
         {
-			$cm->infernal_fp_cutoff($opt_score);
-		}		
+		$cm->infernal_fp_cutoff($opt_score);
+	}
     }
     
     if ($opt_thread != 999)

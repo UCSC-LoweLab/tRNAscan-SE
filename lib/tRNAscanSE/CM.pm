@@ -110,6 +110,13 @@ sub cm_cutoff
     return $self->{cm_cutoff};
 }
 
+sub organelle_cm_cutoff
+{
+    my $self = shift;
+    if (@_) { $self->{organelle_cm_cutoff} = shift; }
+    return $self->{organelle_cm_cutoff};
+}
+
 sub infernal_fp_cutoff
 {
     my $self = shift;
@@ -1200,6 +1207,12 @@ sub decode_tRNA_properties
         }
         
         $trna->isotype($gc->get_tRNA_type($self, $trna->anticodon(), $cur_cm_file, $trna->model(), $self->cove_mode()));
+        
+        if ($anticodon ne "TCA" and $trna->isotype() eq "SeC")
+        {
+            $trna->anticodon($gc->undef_anticodon());
+            $trna->isotype($gc->undef_isotype());
+        }
     }
     
     # Write current tRNA to temp file for re-analysis with other models
@@ -1231,26 +1244,30 @@ sub fix_fMet
         {
 			if (substr($trna->ss(), 0, 1) ne ".")
             {
-                $trna->seq(substr($trna->upstream(), length($trna->upstream())-1) . $trna->seq());
-                $trna->upstream(substr($trna->upstream(), 0, length($trna->upstream())-1));
-                $trna->ss(".".$trna->ss());
-                if ($trna->strand() eq "+")
+                if (($trna->strand() eq "+" and $trna->start() > 1) or
+                    ($trna->strand() eq "-" and $trna->end() < $trna->src_seqlen()))
                 {
-					$trna->start($trna->start() - 1);
-				}
-				else
-                {
-                    $trna->end($trna->end() + 1);
+                    $trna->seq(substr($trna->upstream(), length($trna->upstream())-1) . $trna->seq());
+                    $trna->upstream(substr($trna->upstream(), 0, length($trna->upstream())-1));
+                    $trna->ss(".".$trna->ss());
+                    if ($trna->strand() eq "+")
+                    {
+                        $trna->start($trna->start() - 1);
+                    }
+                    else
+                    {
+                        $trna->end($trna->end() + 1);
+                    }
+                    my @ar_ac_pos = $trna->ar_ac_pos();
+                    if (scalar(@ar_ac_pos) > 0)
+                    {
+                        $ar_ac_pos[0]->{rel_start} += 1;
+                        $ar_ac_pos[0]->{rel_end} += 1;
+                        $trna->ar_ac_pos(@ar_ac_pos);
+                    }
+                    
+                    $rescore = 1;
                 }
-                my @ar_ac_pos = $trna->ar_ac_pos();
-                if (scalar(@ar_ac_pos) > 0)
-                {
-					$ar_ac_pos[0]->{rel_start} += 1;
-                    $ar_ac_pos[0]->{rel_end} += 1;
-                    $trna->ar_ac_pos(@ar_ac_pos);
-				}
-				
-                $rescore = 1;
             }
             elsif (substr($trna->ss(), 0, 4) eq ".>.>" and substr($trna->seq(), 0, 2) eq "CG")
             {
@@ -2418,14 +2435,14 @@ sub run_cmsearch
         }
     }
     
-    if ($opts->mito_mode())
-    {
-		$score_cutoff = $self->{organelle_cm_cutoff};
-	}
-	else
-    {
+#    if ($opts->mito_mode())
+#    {
+#		$score_cutoff = $self->{organelle_cm_cutoff};
+#	}
+#	else
+#   {
         $score_cutoff = $self->{cm_cutoff};
-    }
+#   }
     
     foreach my $cur_cm (sort keys %{$self->{main_cm_file_path}})
     {
@@ -3286,7 +3303,7 @@ sub analyze_mito
             $cm_tRNA->start($cm_tRNA->start() + $prescan_tRNA->start() - 1);
             $cm_tRNA->end($cm_tRNA->end() + $prescan_tRNA->start() - 1);
 
-            if ($cm_tRNA->score() < $self->{organelle_cm_cutoff})
+            if ($cm_tRNA->score() < $self->{cm_cutoff})
             {
                 $log->broadcast("Low cmsearch score for ".$prescan_tRNA->tRNAscan_id().".$cms_hit_count: ".$cm_tRNA->score());
                 $trnaDesc .= "(CMSearch Hit#$cms_hit_count: ".$cm_tRNA->start()."-".$cm_tRNA->end().",".
