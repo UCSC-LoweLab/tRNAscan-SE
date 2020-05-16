@@ -5,7 +5,7 @@ Patricia Chan, Brian Lin, and Todd Lowe
 
 School of Engineering, University of California, Santa Cruz, CA
 --------------------------------------------------------------
-Current release: 2.0.4 (September 2019)
+Current release: 2.0.5 (October 2019)
 
 tRNAscan-SE was written in the PERL (version 5) script language.
 Input consists of DNA or RNA sequences in FASTA format. tRNA
