@@ -1242,14 +1242,6 @@ sub fix_fMet
                 {
                     $trna->end($trna->end() + 1);
                 }
-                my @ar_ac_pos = $trna->ar_ac_pos();
-                if (scalar(@ar_ac_pos) > 0)
-                {
-					$ar_ac_pos[0]->{rel_start} += 1;
-                    $ar_ac_pos[0]->{rel_end} += 1;
-                    $trna->ar_ac_pos(@ar_ac_pos);
-				}
-				
                 $rescore = 1;
             }
             elsif (substr($trna->ss(), 0, 4) eq ".>.>" and substr($trna->seq(), 0, 2) eq "CG")
@@ -1274,13 +1266,6 @@ sub fix_fMet
                     else
                     {
                         $trna->end($trna->end() - 1);
-                    }
-                    my @ar_ac_pos = $trna->ar_ac_pos();
-                    if (scalar(@ar_ac_pos) > 0)
-                    {
-                        $ar_ac_pos[0]->{rel_start} -= 1;
-                        $ar_ac_pos[0]->{rel_end} -= 1;
-                        $trna->ar_ac_pos(@ar_ac_pos);
                     }
                     $rescore = 1;
 				}				
@@ -1325,16 +1310,6 @@ sub fix_His
 			$trna->ss(substr($trna->ss(), 1, 3).">".substr($trna->ss(), 5, length($trna->ss())-11)."<".substr($trna->ss(), length($trna->ss())-5, 3).".");
             $trna->start($trna->start() + 1);
             $trna->end($trna->end() - 1);
-            my @ar_ac_pos = $trna->ar_ac_pos();
-            if (scalar(@ar_ac_pos) > 0)
-            {
-                for (my $i = 0; $i < scalar(@ar_ac_pos); $i++)
-                {
-                    $ar_ac_pos[$i]->{rel_start} -= 1;
-                    $ar_ac_pos[$i]->{rel_end} -= 1;
-                }
-                $trna->ar_ac_pos(@ar_ac_pos);
-            }
             $self->rescore_tRNA($global_vars, $trna, $trna);
 		}
 	}
