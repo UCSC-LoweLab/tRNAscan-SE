@@ -1,0 +1,195 @@
+# tRNAscan-SE 2.0 
+# Configuration File
+
+# default paths
+bin_dir: @bindir@
+lib_dir: @libdir@/tRNAscan-SE
+infernal_dir: {bin_dir}
+
+# temporary files
+temp_dir: /tmp
+tmp_raw: {temp_dir}/tscan$$.raw
+tmp_fa: {temp_dir}/tscan$$.fa
+tmp_trnaseq_file: {temp_dir}/tscan$$.trna
+tmp_masked_fa: {temp_dir}/tscan$$.masked.fa
+
+# sequence process
+really_big_number: 1000000000
+upstream_len: 70
+downstream_len: 70
+
+# default search mode
+cm_mode: infernal
+# default cutoff bit score for infernal running as first pass scanner
+infernal_fp_cutoff: 10
+# default cutoff score for reporting of tRNA
+cm_cutoff: 20
+# default cutoff score for reporting of tRNA in organelles
+organelle_cm_cutoff: 15
+isotype_cm_cutoff.euk: 20
+isotype_cm_cutoff.arch: 20
+isotype_cm_cutoff.bact: 20
+
+# max size of -w parameter passed to covels when using a pre-scanner (eufind or tRNAscan)
+max_tRNA_length: 500
+# max size of -w param if only Cove is being used (too slow otherwise)	
+max_cove_tRNA_length: 250
+# max size of -w param if only cmsearch is being used 
+max_cmsearch_tRNA_length: 250
+# min length for average tRNA with no intron
+min_tRNA_no_intron: 70
+# min size of introns detected by parsing of coves output
+min_intron_length: 3
+# Below this score, tRNAs are checked for min primary and secondary structure
+# scores to catch pseudogene repeats like rat ID & rodent B2 elements
+min_cove_pseudo_filter_score: 55
+# Below this score, tRNAs are checked for min primary and secondary structure
+# scores to catch pseudogene repeats like rat ID & rodent B2 elements
+min_cmsearch_pseudo_filter_score: 55
+# Below this secondary structure score, tRNA is considered a pseudogene
+min_ss_score: 5
+# Below this primary structure score, tRNA is considered a pseudogene
+min_hmm_score: 10
+
+# legacy mode default searching parameters
+# Intermediate score cutoff for use with eufindtRNA
+eufind.intscore: -32.10
+eufind.orig_intscore: -31.25    
+eufind.bact_intscore: -36.0
+eufind.arch_intscore: -36.0
+eufind.strict_param: -s
+# relaxed params to be used with eufindtRNA program by default
+eufind.relaxed_param: -r
+tscan.strict_param: -s
+tscan.relaxed_param: -r
+tscan.alt_param: -a
+
+# default cutoff score for rescanning non-canonical introns
+nci_scan_cutoff: 70
+# default score for considering non-canonical intron
+BHB_cm_cutoff: 6.5
+# default cutoff score for rescanning split tRNA
+split_tRNA_scan_cutoff: 38
+# default cutoff score for half tRNA
+half_tRNA_cutoff: 15
+left_splicing_len: 27			 
+right_splicing_len: 28			 
+
+# alternate genetic code
+gc_yeast_mito: {lib_dir}/gcode/gcode.ystmito
+gc_vert_mito: {lib_dir}/gcode/gcode.vertmito
+gc_invert_mito: {lib_dir}/gcode/gcode.invmito
+gc_ciliate_cyto: {lib_dir}/gcode/gcode.cilnuc
+gc_echinoderm_mito: {lib_dir}/gcode/gcode.echdmito
+gc_other_mito: {lib_dir}/gcode/gcode.othmito
+
+# Infernal 1.1 covariance models
+cm_dir: {lib_dir}/models
+cm.general: {cm_dir}/TRNAinf.cm
+cm.general-ns: {cm_dir}/TRNAinf-ns.cm
+cm.general1415: {cm_dir}/TRNAinf-1415.cm
+cm.general1415-ns: {cm_dir}/TRNAinf-1415-ns.cm
+cm.eukaryota: {cm_dir}/TRNAinf-euk.cm
+cm.eukaryota-ns: {cm_dir}/TRNAinf-euk-ns.cm
+cm.archaea: {cm_dir}/TRNAinf-arch.cm
+cm.archaea-ns: {cm_dir}/TRNAinf-arch-ns.cm
+cm.bacteria: {cm_dir}/TRNAinf-bact.cm
+cm.bacteria-ns: {cm_dir}/TRNAinf-bact-ns.cm
+cm.arch_5h: {cm_dir}/TRNAinf-arch-5h.cm
+cm.arch_3h: {cm_dir}/TRNAinf-arch-3h.cm
+
+# COVE covariance models
+cove_cm_dir: {lib_dir}/models
+cove_cm.general: {cove_cm_dir}/TRNA2.cm
+cove_cm.general-ns: {cove_cm_dir}/TRNA2ns.cm
+cove_cm.eukaryota: {cove_cm_dir}/TRNA2-euk.cm
+cove_cm.eukaryota-ns: {cove_cm_dir}/TRNA2-eukns.cm
+cove_cm.archaea: {cove_cm_dir}/TRNA2-arch.cm
+cove_cm.archaea-ns: {cove_cm_dir}/TRNA2-archns.cm
+cove_cm.bacteria: {cove_cm_dir}/TRNA2-bact.cm
+cove_cm.bacteria-ns: {cove_cm_dir}/TRNA2-bactns.cm
+cove_cm.ESELC: {cove_cm_dir}/ESELC.cm
+cove_cm.PSELC: {cove_cm_dir}/PSELC.cm
+
+# Isotype-specific model db
+isotype_cm_dir: {lib_dir}/models
+isotype_cm.eukaryota: {isotype_cm_dir}/TRNAinf-euk-iso
+isotype_cm.bacteria: {isotype_cm_dir}/TRNAinf-bact-iso
+isotype_cm.archaea: {isotype_cm_dir}/TRNAinf-arch-iso
+
+# tRNA-SeC models
+euk_cm.SeC: {isotype_cm_dir}/TRNAinf-euk-SeC.cm
+bact_cm.SeC: {isotype_cm_dir}/TRNAinf-bact-SeC.cm
+arch_cm.SeC: {isotype_cm_dir}/TRNAinf-arch-SeC.cm
+
+# Non-canonical intron models
+nci_cm.cren: {cm_dir}/Cren-eury-BHB-noncan.cm
+nci_cm.thaum: {cm_dir}/Thaum-BHB-noncan.cm
+
+# Mito-tRNA model db
+mito_cm_db_dir: {lib_dir}/models
+mito_cm.mammal: {mito_cm_db_dir}/TRNAinf-mito-mammal
+mito_cm.vert: {mito_cm_db_dir}/TRNAinf-mito-vert
+
+# Mammalian mito-tRNA models
+mito_cm_mammal_dir: {lib_dir}/models
+mito_cm_mammal.Ala: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Ala.cm
+mito_cm_mammal.Arg: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Arg.cm
+mito_cm_mammal.Asn: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Asn.cm
+mito_cm_mammal.Asp: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Asp.cm
+mito_cm_mammal.Cys: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Cys.cm
+mito_cm_mammal.Gln: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Gln.cm
+mito_cm_mammal.Glu: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Glu.cm
+mito_cm_mammal.Gly: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Gly.cm
+mito_cm_mammal.His: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-His.cm
+mito_cm_mammal.Ile: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Ile.cm
+mito_cm_mammal.LeuTAA: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-LeuTAA.cm
+mito_cm_mammal.LeuTAG: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-LeuTAG.cm
+mito_cm_mammal.Lys: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Lys.cm
+mito_cm_mammal.Met: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Met.cm
+mito_cm_mammal.Phe: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Phe.cm
+mito_cm_mammal.Pro: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Pro.cm
+mito_cm_mammal.SerGCT: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-SerGCT.cm
+mito_cm_mammal.SerTGA: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-SerTGA.cm
+mito_cm_mammal.Thr: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Thr.cm
+mito_cm_mammal.Trp: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Trp.cm
+mito_cm_mammal.Tyr: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Tyr.cm
+mito_cm_mammal.Val: {mito_cm_mammal_dir}/TRNAinf-mito-mammal-Val.cm
+
+# Vertebrate mito-tRNA models
+mito_cm_vert_dir: {lib_dir}/models
+mito_cm_vert.Ala: {mito_cm_vert_dir}/TRNAinf-mito-vert-Ala.cm
+mito_cm_vert.Arg: {mito_cm_vert_dir}/TRNAinf-mito-vert-Arg.cm
+mito_cm_vert.Asn: {mito_cm_vert_dir}/TRNAinf-mito-vert-Asn.cm
+mito_cm_vert.Asp: {mito_cm_vert_dir}/TRNAinf-mito-vert-Asp.cm
+mito_cm_vert.Cys: {mito_cm_vert_dir}/TRNAinf-mito-vert-Cys.cm
+mito_cm_vert.Gln: {mito_cm_vert_dir}/TRNAinf-mito-vert-Gln.cm
+mito_cm_vert.Glu: {mito_cm_vert_dir}/TRNAinf-mito-vert-Glu.cm
+mito_cm_vert.Gly: {mito_cm_vert_dir}/TRNAinf-mito-vert-Gly.cm
+mito_cm_vert.His: {mito_cm_vert_dir}/TRNAinf-mito-vert-His.cm
+mito_cm_vert.Ile: {mito_cm_vert_dir}/TRNAinf-mito-vert-Ile.cm
+mito_cm_vert.LeuTAA: {mito_cm_vert_dir}/TRNAinf-mito-vert-LeuTAA.cm
+mito_cm_vert.LeuTAG: {mito_cm_vert_dir}/TRNAinf-mito-vert-LeuTAG.cm
+mito_cm_vert.Lys: {mito_cm_vert_dir}/TRNAinf-mito-vert-Lys.cm
+mito_cm_vert.Met: {mito_cm_vert_dir}/TRNAinf-mito-vert-Met.cm
+mito_cm_vert.Phe: {mito_cm_vert_dir}/TRNAinf-mito-vert-Phe.cm
+mito_cm_vert.Pro: {mito_cm_vert_dir}/TRNAinf-mito-vert-Pro.cm
+mito_cm_vert.SerGCT: {mito_cm_vert_dir}/TRNAinf-mito-vert-SerGCT.cm
+mito_cm_vert.SerTGA: {mito_cm_vert_dir}/TRNAinf-mito-vert-SerTGA.cm
+mito_cm_vert.Thr: {mito_cm_vert_dir}/TRNAinf-mito-vert-Thr.cm
+mito_cm_vert.Trp: {mito_cm_vert_dir}/TRNAinf-mito-vert-Trp.cm
+mito_cm_vert.Tyr: {mito_cm_vert_dir}/TRNAinf-mito-vert-Tyr.cm
+mito_cm_vert.Val: {mito_cm_vert_dir}/TRNAinf-mito-vert-Val.cm
+
+# to be used for sprinzl position alignment
+# sprinzl_cm_dir: {lib_dir}/models
+# sprinzl_cm.euk: {sprinzl_cm_dir}/euk_sprinzl.cm
+# sprinzl_cm.arch: {sprinzl_cm_dir}/arch_sprinzl.cm
+# sprinzl_cm.bact: {sprinzl_cm_dir}/bact_sprinzl.cm
+
+# alternate covariance models
+# To be used in place of default models
+# Example:
+# alt_cm_dir: /tmp
+# alt_cm.Ala: {alt_cm_dir}/Ala.cm
+# alt_cm.Arg: {alt_cm_dir}/Arg.cm

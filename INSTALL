@@ -1,0 +1,37 @@
+
+Installation of tRNAscan-SE: a tool for finding transfer RNAs
+-----------------------------------------------------------------
+
+Starting from a source distribution, trnascan-se-2.0.0.tar.gz:
+ uncompress:                gunzip trnascan-se-2.0.0.tar.gz  
+ unpack:                    tar xf trnascan-se-2.0.0.tar
+ move into new directory:   cd trnascan-se-2.0.0
+ configure:                 ./configure
+ build:                     make
+ automated install:         make install
+
+To specify a directory for installation, for example, your home
+directory "/home/xyz", run configure as
+ ./configure --prefix=/home/xyz
+ 
+For more information about special parameters for running configure,
+please get it at
+ ./configure --help
+ 
+tRNAscan-SE is designed to run on POSIX-compatible platforms, including
+UNIX, Linux and MacOS/X. The POSIX standard essentially includes all
+operating systems except Microsoft Windows. 
+
+Non-ANSI compilers may need one or more -MDEFS defined.
+
+
+
+Dependencies
+-----------------------------------------------------------------
+
+tRNAscan-SE 2.0 requires separate installation of Infernal 1.1.2.
+The source code and prebuilt binaries can be obtained at
+http://eddylab.org/infernal/.
+
+The installation directory of Infernal should be the same as the one
+where tRNAscan-SE 2.0 is installed.

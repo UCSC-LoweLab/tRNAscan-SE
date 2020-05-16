@@ -1,0 +1,93 @@
+
+tRNAscan-SE v.2.0rc1 (April 2017) scan results (on host pismo.soe.ucsc.edu)
+Started: Mon Apr 10 01:02:12 PDT 2017
+
+------------------------------------------------------------
+Sequence file(s) to search:        Example1.fa
+Search Mode:                       Eukaryotic
+Results written to:                Example1-tRNAs.out
+Output format:                     Tabular
+Searching with:                    Infernal First Pass->Infernal
+Isotype-specific model scan:       Yes
+Covariance model:                  /home/pchan/lib/tRNAscan-SE/models/TRNAinf-euk.cm
+                                   /home/pchan/lib/tRNAscan-SE/models/TRNAinf-euk-SeC.cm
+Infernal first pass cutoff score:  10
+
+Temporary directory:               /tmp
+tRNA secondary structure
+    predictions saved to:          Example1-tRNAs.ss
+tRNA predictions saved to:         Example1-tRNAs.bed
+Isotype specific
+    predictions saved to:          Example1-tRNAs.iso
+Search log saved in:               Example1-tRNAs.log
+Search statistics saved in:        Example1-tRNAs.stats
+
+Reporting HMM/2' structure score breakdown
+------------------------------------------------------------
+
+First-pass Stats:
+---------------
+Sequences read:         1
+Seqs w/at least 1 hit:  1
+Bases read:             40222 (x2 for both strands)
+Bases in tRNAs:         420
+tRNAs predicted:        5
+Av. tRNA length:        84
+Script CPU time:        0.02 s
+Scan CPU time:          0.77 s
+Scan speed:             104.5 Kbp/sec
+
+First pass search(es) ended: Mon Apr 10 01:02:13 PDT 2017
+
+Infernal Stats:
+-----------
+Candidate tRNAs read:     5
+Infernal-confirmed tRNAs:     5
+Bases scanned by Infernal:  520
+% seq scanned by Infernal:  0.6 %
+Script CPU time:          0.07 s
+Infernal CPU time:            8.38 s
+Scan speed:               62.1 bp/sec
+
+Infernal analysis of tRNAs ended: Mon Apr 10 01:02:25 PDT 2017
+
+Overall scan speed: 8706.1 bp/sec
+
+tRNAs decoding Standard 20 AA:              5
+Selenocysteine tRNAs (TCA):                 0
+Possible suppressor tRNAs (CTA,TTA):        0
+tRNAs with undetermined/unknown isotypes:   0
+tRNAs with mismatch isotypes:               0
+Predicted pseudogenes:                      0
+                                            -------
+Total tRNAs:                                5
+
+tRNAs with introns:     	1
+
+| Leu-CAA: 1 |
+
+Isotype / Anticodon Counts:
+
+Ala   : 0 (0)	  AGC:         GGC:         CGC:         TGC:       
+Gly   : 0 (0)	  ACC:         GCC:         CCC:         TCC:       
+Pro   : 1 (1)	  AGG:         GGG:         CGG: 1       TGG:       
+Thr   : 0 (0)	  AGT:         GGT:         CGT:         TGT:       
+Val   : 0 (0)	  AAC:         GAC:         CAC:         TAC:       
+Ser   : 1 (1)	  AGA: 1       GGA:         CGA:         TGA:         ACT:         GCT:       
+Arg   : 0 (0)	  ACG:         GCG:         CCG:         TCG:         CCT:         TCT:       
+Leu   : 1 (1)	  AAG:         GAG:         CAG:         TAG:         CAA: 1       TAA:       
+Phe   : 2 (2)	  AAA:         GAA: 2                               
+Asn   : 0 (0)	  ATT:         GTT:                                 
+Lys   : 0 (0)	                            CTT:         TTT:       
+Asp   : 0 (0)	  ATC:         GTC:                                 
+Glu   : 0 (0)	                            CTC:         TTC:       
+His   : 0 (0)	  ATG:         GTG:                                 
+Gln   : 0 (0)	                            CTG:         TTG:       
+Ile   : 0 (0)	  AAT:         GAT:                      TAT:       
+Met   : 0 (0)	                            CAT:                    
+Tyr   : 0 (0)	  ATA:         GTA:                                 
+Supres: 0 (0)	                            CTA:         TTA:       
+Cys   : 0 (0)	  ACA:         GCA:                                 
+Trp   : 0 (0)	                            CCA:                    
+SelCys: 0 (0)	                                         TCA:       
+

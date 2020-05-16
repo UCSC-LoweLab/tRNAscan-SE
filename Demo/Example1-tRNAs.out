@@ -1,0 +1,8 @@
+Sequence 		tRNA 	Bounds	tRNA	Anti	Intron Bounds	Inf	HMM	2'Str	Hit	Isotype	Isotype	      
+Name     	tRNA #	Begin	End  	Type	Codon	Begin	End	Score	Score	Score	Origin	CM	Score	Note
+-------- 	------	-----	------	----	-----	-----	----	------	-----	-----	------	-------	-------	------
+CELF22B7 	1	12619	12738	Leu	CAA	12657	12692	74.2	51.20	23.00	Inf	Leu	119.9	
+CELF22B7 	2	19480	19561	Ser	AGA	0	0	81.6	47.50	34.10	Inf	Ser	125.0	
+CELF22B7 	3	26367	26439	Phe	GAA	0	0	82.5	56.60	25.90	Inf	Phe	112.1	
+CELF22B7 	4	26992	26920	Phe	GAA	0	0	82.5	56.60	25.90	Inf	Phe	112.1	
+CELF22B7 	5	23765	23694	Pro	CGG	0	0	71.5	48.20	23.30	Inf	Pro	113.0	

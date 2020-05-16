@@ -1,0 +1,1098 @@
+#! @PERL@ -w
+#
+# --------------------------------------------------------------------
+# EukHighConfidenceFilter v1.0
+#
+# Annotate eukaryotic tRNA high confidence set from tRNAscan-SE 2.0 predictions
+#
+# Copyright (C) 2017 Patricia Chan and Todd Lowe 
+#
+# Baskin School of Engineering, University of California, Santa Cruz
+# lowe@soe.ucsc.edu
+# http://lowelab.ucsc.edu/
+# --------------------------------------------------------------------
+ 
+use strict;
+use lib "@libdir@/tRNAscan-SE";
+use Getopt::Long;
+
+use tRNAscanSE::tRNA;
+use tRNAscanSE::ArraytRNA;
+
+our @isotypes = ('Ala', 'Gly', 'Pro', 'Thr', 'Val', 
+	     'Ser', 'Arg', 'Leu',     
+	     'Phe','Asn', 'Lys', 'Asp', 'Glu', 'His', 'Gln', 
+	     'Ile', 'Met', 'Tyr', 'Sup', 'Cys', 'Trp',  'SeC');
+	     
+our %ac_list = (
+	   'Ala' => [qw/AGC GGC CGC TGC/],
+	   'Gly' => [qw/ACC GCC CCC TCC/],
+	   'Pro' => [qw/AGG GGG CGG TGG/],
+	   'Thr' => [qw/AGT GGT CGT TGT/],
+	   'Val' => [qw/AAC GAC CAC TAC/],
+	   
+	   'Ser' => [qw/AGA GGA CGA TGA ACT GCT &nbsp &nbsp/],
+	   'Arg' => [qw/ACG GCG CCG TCG &nbsp &nbsp CCT TCT/],
+	   'Leu' => [qw/AAG GAG CAG TAG &nbsp &nbsp CAA TAA/],
+	   
+	   'Phe' => [qw/AAA GAA &nbsp &nbsp/],
+	   
+	   'Asn' => [qw/ATT GTT &nbsp &nbsp/],
+	   'Lys' => [qw/&nbsp &nbsp CTT TTT/],
+	   
+	   'Asp' => [qw/ATC GTC &nbsp &nbsp /],
+	   'Glu' => [qw/&nbsp &nbsp CTC TTC/],
+	   
+	   'His' => [qw/ATG GTG &nbsp &nbsp /],
+	   'Gln' => [qw/&nbsp &nbsp CTG TTG/],
+	   
+	   'Tyr' => [qw/ATA GTA &nbsp &nbsp /],
+	   'Sup' => [qw/&nbsp &nbsp CTA TTA/],
+	   
+	   'Ile' => [qw/AAT GAT &nbsp TAT/],
+	   'Met' => [qw/&nbsp &nbsp CAT &nbsp/],
+
+	   'Cys' => [qw/ACA GCA &nbsp &nbsp /],
+	   'Trp' => [qw/&nbsp &nbsp CCA &nbsp/],
+	   'SeC' => [qw/&nbsp &nbsp &nbsp TCA/]
+           );
+
+our %aa_list = (
+		   'AGC'=>'Ala', 'GGC'=>'Ala', 'CGC'=>'Ala', 'TGC'=>'Ala',
+		   'ACC'=>'Gly', 'GCC'=>'Gly', 'CCC'=>'Gly', 'TCC'=>'Gly',
+		   'AGG'=>'Pro', 'GGG'=>'Pro', 'CGG'=>'Pro', 'TGG'=>'Pro',
+		   'AGT'=>'Thr', 'GGT'=>'Thr', 'CGT'=>'Thr', 'TGT'=>'Thr',
+		   'AAC'=>'Val', 'GAC'=>'Val', 'CAC'=>'Val', 'TAC'=>'Val',
+		   
+		   'AGA'=>'Ser', 'GGA'=>'Ser', 'CGA'=>'Ser', 'TGA'=>'Ser', 'ACT'=>'Ser', 'GCT'=>'Ser',
+		   'ACG'=>'Arg', 'GCG'=>'Arg', 'CCG'=>'Arg', 'TCG'=>'Arg', 'CCT'=>'Arg', 'TCT'=>'Arg',
+		   'AAG'=>'Leu', 'GAG'=>'Leu', 'CAG'=>'Leu', 'TAG'=>'Leu', 'CAA'=>'Leu', 'TAA'=>'Leu',
+		   
+		   'AAA'=>'Phe', 'GAA'=>'Phe',
+		   
+		   'ATT'=>'Asn', 'GTT'=>'Asn',
+		   'CTT'=>'Lys', 'TTT'=>'Lys',
+		   
+		   'ATC'=>'Asp', 'GTC'=>'Asp',
+		   'CTC'=>'Glu', 'TTC'=>'Glu',
+		   
+		   'ATG'=>'His', 'GTG'=>'His',
+		   'CTG'=>'Gln', 'TTG'=>'Gln',
+		   
+		   'ATA'=>'Tyr', 'GTA'=>'Tyr',
+		   'CTA'=>'Sup', 'TTA'=>'Sup',
+		   
+		   'AAT'=>'Ile', 'GAT'=>'Ile', 'TAT'=>'Ile',
+		   'CAT'=>'Met',
+		   
+		   'ACA'=>'Cys', 'GCA'=>'Cys',
+		   'CCA'=>'Trp',
+		   'TCA'=>'SeC',
+		   );
+
+
+our %euk_aa_list = (
+		   'AGC'=>'Ala', 'CGC'=>'Ala', 'TGC'=>'Ala',
+		   'GCC'=>'Gly', 'CCC'=>'Gly', 'TCC'=>'Gly',
+		   'AGG'=>'Pro', 'CGG'=>'Pro', 'TGG'=>'Pro',
+		   'AGT'=>'Thr', 'CGT'=>'Thr', 'TGT'=>'Thr',
+		   'AAC'=>'Val', 'CAC'=>'Val', 'TAC'=>'Val',
+		   
+		   'AGA'=>'Ser', 'CGA'=>'Ser', 'TGA'=>'Ser', 'GCT'=>'Ser',
+		   'ACG'=>'Arg', 'CCG'=>'Arg', 'TCG'=>'Arg', 'CCT'=>'Arg', 'TCT'=>'Arg',
+		   'AAG'=>'Leu', 'CAG'=>'Leu', 'TAG'=>'Leu', 'CAA'=>'Leu', 'TAA'=>'Leu',
+		   
+		   'GAA'=>'Phe',
+		   
+		   'GTT'=>'Asn',
+		   'CTT'=>'Lys', 'TTT'=>'Lys',
+		   
+		   'GTC'=>'Asp',
+		   'CTC'=>'Glu', 'TTC'=>'Glu',
+		   
+		   'GTG'=>'His',
+		   'CTG'=>'Gln', 'TTG'=>'Gln',
+		   
+		   'GTA'=>'Tyr',
+		   'CTA'=>'Sup', 'TTA'=>'Sup',
+		   
+		   'AAT'=>'Ile', 'GAT'=>'Ile', 'TAT'=>'Ile',
+		   'CAT'=>'Met',
+		   
+		   'GCA'=>'Cys',
+		   'CCA'=>'Trp',
+		   'TCA'=>'SeC',
+		   );
+
+our ($opt_result, $opt_ss, $opt_output, $opt_prefix, $opt_remove, $opt_cmscore1, $opt_ssscore1, $opt_isoscore1,
+	 $opt_isoscore2, $opt_isomaxscore2, $opt_help);
+
+our $ANTICODON_COUNT_CUTOFF = 40;
+
+our %file_names = ();
+our $tRNAs = tRNAscanSE::ArraytRNA->new();
+our %tRNA_counts = ();
+
+&set_options();
+&set_file_names();
+my ($sec_pass_filtered_ac, $iso_score_cutoff, $ac_count) = &filtering();
+&print_results($sec_pass_filtered_ac, $iso_score_cutoff, $ac_count);
+
+exit;
+
+sub set_options
+{
+	$opt_result = "";
+	$opt_ss = "";
+	$opt_output = "";
+	$opt_prefix = "";
+	$opt_remove = 0;
+	$opt_cmscore1 = 50;
+	$opt_ssscore1 = 10;
+	$opt_isoscore1 = 70;
+	$opt_isoscore2 = 70;
+	$opt_isomaxscore2 = 95;
+	
+	Getopt::Long::GetOptions("result|i=s", "ss|s=s", "output|o=s", "prefix|p=s", "remove|r",
+							 "cmscore1|c1=f", "ssscore1|m1=f", "isoscore1|e1=f",
+							 "isoscore2|e2=f", "isomaxscore2|x=f", "help|h");
+	
+	if ($opt_help || $opt_result eq "" || $opt_ss eq "" || $opt_output eq "" || $opt_prefix eq "" ||
+		$opt_cmscore1 < -1 || $opt_ssscore1 < -1 || $opt_isoscore1 < -1 || $opt_isoscore2 < -1 || $opt_isomaxscore2 < -1)
+	{
+		die "Usage: EukQualityFilter [options]\n",
+			"Options\n",
+			"--result -i <file>         tRNAscan-SE output file used as input\n",
+			"--ss -s <file>             tRNAscan-SE secondary structure file used as input\n",
+			"--output -o <file path>    Directory where output files will be written\n",
+			"--prefix -p <name>         Prefix for output file name\n",
+			"--remove -r                Remove filtered tRNA hits (default: filtered tRNA hits are only tagged)\n",
+			"--cmscore1 -c1 <num>       Domain-specific model score cutoff for secondary filtering (default = 50; -1 if not used for filtering)\n",
+			"--ssscore1 -m1 <num>       Secondary structure score cutoff for secondary filtering (default = 10; -1 if not used for filtering)\n",
+			"--isoscore1 -e1 <num>      Isotype-specific model score cutoff for secondary filtering (default = 70; -1 if not used for filtering)\n",
+			"--isoscore2 -e2 <num>      Isotype-specific model starting score cutoff for tertiary filtering (default = 70; -1 if not used for filtering)\n",
+			"--isomaxscore2 -x <num>    Maximum isotype-specific model score cutoff for tertiary filtering (default = 95)\n",
+			"--help -h                  Print this help\n\n";
+	}
+}
+
+sub set_file_names
+{
+	system("mkdir -p ".$opt_output);
+	$file_names{tRNAscan_out} = $opt_result;
+	$file_names{tRNAscan_ss} = $opt_ss;	
+	$file_names{output_tRNAscan_out} = $opt_output."/".$opt_prefix.".out";
+	$file_names{output_tRNAscan_ss} = $opt_output."/".$opt_prefix.".ss";
+	$file_names{log} = $opt_output."/".$opt_prefix.".log";
+}
+
+sub filtering
+{
+	my $sec_pass_filtered_ac = {};
+	my $iso_score_cutoff = {};
+	
+	&pseudogene_filter();
+	&secondary_filter();
+	if ($opt_isoscore2 != -1)
+	{
+		($sec_pass_filtered_ac, $iso_score_cutoff) = &tertiary_filter();
+	}
+	$tRNAs->sort_array("tRNAscan_id");
+	my $ac_count = &get_ac_count();
+	
+	return ($sec_pass_filtered_ac, $iso_score_cutoff, $ac_count);
+}
+
+sub print_results
+{
+	my ($sec_pass_filtered_ac, $iso_score_cutoff, $ac_count) = @_;
+	&write_out_file($ac_count);
+	&write_ss_file();
+	&write_summary($sec_pass_filtered_ac, $iso_score_cutoff);
+}
+
+sub pseudogene_filter
+{
+	my $line = "";
+	my $tRNA = undef;
+	my %header = ();
+	my ($startpos, $endpos);
+	my @columns = ();
+	my $ct = 0;
+	
+	$tRNA_counts{total} = 0;
+	$tRNA_counts{pseudo_filter} = 0;
+	
+	print "Status: Filtering pseudogenes\n";
+	
+	open(FILE_IN, "$file_names{tRNAscan_out}") or die "Fail to open $file_names{tRNAscan_out}\n";
+	
+	while ($line = <FILE_IN>)
+	{
+		$ct++;
+		
+		print STDERR "." if ($ct % 1000 == 0);
+		print STDERR "\n" if ($ct % 50000 == 0);
+		
+		chomp($line);
+		if ($line =~ /^Name/)
+		{
+			$line =~ s/tRNA #/tRNA#/;
+		}
+		if ($line =~ /^Sequence/)
+		{
+			$line =~ s/Intron Bounds/Intron\tBound/;
+		}
+
+		@columns = split(/\t/, $line, -1);
+		for (my $i = 0; $i < scalar(@columns); $i++)
+		{
+			$columns[$i] = &trim($columns[$i]);
+		}
+
+		if ($columns[0] =~ /^Sequence/ || $columns[0] =~ /^Name/ || $columns[0] =~ /^-----/)
+		{
+			if ($columns[0] =~ /^Sequence/)
+			{
+				for (my $i = 0; $i < scalar(@columns); $i++)
+				{
+					if ($columns[$i] eq "Sequence")
+					{
+						$header{seqname} = $i;
+					}
+					elsif ($columns[$i] eq "Anti")
+					{
+						$header{anticodon} = $i;
+					}
+					elsif ($columns[$i] eq "Intron")
+					{
+						$header{intron_start} = $i;
+						$header{intron_end} = $i+1;
+					}
+					elsif ($columns[$i] eq "Inf")
+					{
+						$header{score} = $i;
+					}
+					elsif ($columns[$i] eq "Cove")
+					{
+						$header{score} = $i;
+					}
+					elsif ($columns[$i] eq "HMM")
+					{
+						$header{hmm_score} = $i;
+					}
+					elsif ($columns[$i] eq "2'Str")
+					{
+						$header{ss_score} = $i;
+					}
+					elsif ($columns[$i] eq "Hit")
+					{
+						$header{hit_origin} = $i;
+					}
+					elsif ($columns[$i] eq "HMM")
+					{
+						$header{hmm_score} = $i;
+					}
+					elsif ($columns[$i] eq "Type")
+					{
+						$header{isotype_type} = $i;
+					}
+				}
+			}
+			elsif ($columns[0] =~ /^Name/)
+			{
+				for (my $i = 0; $i < scalar(@columns); $i++)
+				{
+					if ($columns[$i] eq "tRNA#")
+					{
+						$header{trna_id} = $i;
+					}
+					elsif ($columns[$i] eq "Begin" and !defined $header{start})
+					{
+						$header{start} = $i;
+						$header{end} = $i+1;
+					}
+					elsif ($columns[$i] eq "Type")
+					{
+						$header{isotype} = $i;
+					}
+					elsif ($columns[$i] eq "CM")
+					{
+						$header{isotype_cm} = $i;
+						$header{isotype_score} = $i+1;
+					}
+					elsif ($columns[$i] eq "Note")
+					{
+						$header{note} = $i;
+					}
+					elsif ($columns[$i] eq "Count")
+					{
+						$header{intron_count} = $i;
+					}
+				}
+			}
+		}
+		else
+		{
+			if (!defined $header{isotype_cm})
+			{
+				die "Error: This filter requires isotype-specific model scan result in the tRNAscan-SE v2 output file.\n";
+			}
+			if (!defined $header{note})
+			{
+				die "Error: This filter requires tRNAscan-SE v2 output file.\n";
+			}
+			
+			$tRNA_counts{total}++;
+			
+			if ($columns[$header{seqname}] eq "chrM" or $columns[$header{seqname}] eq "M" or $columns[$header{seqname}] eq "chrMT" or $columns[$header{seqname}] eq "MT")
+			{
+				$tRNA_counts{total}--;
+				next;
+			}
+			elsif ($columns[$header{note}] =~ /pseudo/)
+			{
+				$tRNA_counts{pseudo_filter}++;
+				next;
+			}
+			else
+			{
+				$tRNA = tRNAscanSE::tRNA->new;
+				$tRNA->seqname($columns[$header{seqname}]);
+				$tRNA->tRNAscan_id($columns[$header{seqname}].".trna".$columns[$header{trna_id}]);
+				$startpos = $columns[$header{start}];
+				$endpos = $columns[$header{end}];
+				if ($startpos < $endpos)
+				{
+					$tRNA->start($startpos);
+					$tRNA->end($endpos);
+					$tRNA->strand("+");
+				}
+				else
+				{
+					$tRNA->end($startpos);
+					$tRNA->start($endpos);
+					$tRNA->strand("-");
+				}
+				$tRNA->category("cyto");
+				$tRNA->isotype($columns[$header{isotype}]);
+				$tRNA->anticodon($columns[$header{anticodon}]);
+				$tRNA->score($columns[$header{score}]);
+				$tRNA->hmm_score($columns[$header{hmm_score}]);
+				$tRNA->ss_score($columns[$header{ss_score}]);
+				$tRNA->tRNAscan_id($tRNA->tRNAscan_id()."-".$tRNA->isotype().$tRNA->anticodon());
+				my $isotype_type = "cytosolic";
+				if (defined $header{isotype_type})
+				{
+					$isotype_type = $columns[$header{isotype_type}];
+				}				
+				$tRNA->add_model_hit($isotype_type, $columns[$header{isotype_cm}], $columns[$header{isotype_score}], "");
+				$tRNAs->put($tRNA);
+			}
+		}
+	}
+	
+	close(FILE_IN);
+	
+	print STDERR "\n";
+}
+
+sub euk_anticodon_filter
+{
+	my ($ac_count, $tRNA) = @_;
+	my $tag = "";
+	
+	if (!defined $euk_aa_list{$tRNA->anticodon()} and !$tRNA->is_pseudo())
+	{
+		my $alt_anticodon = $tRNA->anticodon();
+		if (substr($tRNA->anticodon(), 0, 1) eq "A")
+		{
+			$alt_anticodon = "G".substr($tRNA->anticodon(), 1);
+		}
+		elsif (substr($tRNA->anticodon(), 0, 1) eq "G")
+		{
+			$alt_anticodon = "A".substr($tRNA->anticodon(), 1);
+		}
+		
+		if (defined $aa_list{$tRNA->anticodon()} and defined $aa_list{$alt_anticodon} and defined $euk_aa_list{$alt_anticodon} and
+			$ac_count->{$tRNA->anticodon()} > $ac_count->{$alt_anticodon})
+		{}
+		else
+		{
+			$tag = "unexpected anticodon";
+			$tRNA_counts{ac_filter}++;
+		}
+	}
+	
+	return $tag;
+}
+
+sub secondary_filter
+{
+	print "Status: Secondary filtering\n";
+
+	$tRNA_counts{secondary_filter} = 0;
+	for (my $i = 0; $i < $tRNAs->get_count(); $i++)
+	{
+		my $tRNA = $tRNAs->get($i);
+		my ($type, $model, $iso_score, $iso_ss) = $tRNA->get_highest_score_model();
+		if ($opt_isoscore1 > -1 and !$tRNA->is_pseudo() and ($type eq "mito" or ($type eq "cytosolic" and $iso_score < $opt_isoscore1)))
+		{
+			$tRNA->pseudo(1);
+			$tRNA_counts{secondary_filter}++;
+		}
+		elsif ($opt_cmscore1 > -1 and !$tRNA->is_pseudo() and $tRNA->score() < $opt_cmscore1)
+		{
+			$tRNA->pseudo(1);
+			$tRNA_counts{secondary_filter}++;
+		}
+		elsif ($opt_ssscore1 > -1 and !$tRNA->is_pseudo() and $tRNA->ss_score() < $opt_ssscore1 and $tRNA->isotype() ne "SeC")
+		{
+			$tRNA->pseudo(1);
+			$tRNA_counts{secondary_filter}++;
+		}
+	}
+}
+
+sub get_ac_count
+{
+	my %ac_count = ();
+	
+	for my $ac (sort keys %aa_list)
+	{
+		$ac_count{$ac} = 0;
+	}
+	
+	for (my $i = 0; $i < $tRNAs->get_count(); $i++)
+	{
+		my $tRNA = $tRNAs->get($i);
+		if ($tRNA->is_cytosolic() and !$tRNA->is_pseudo())
+		{
+			$ac_count{$tRNA->anticodon()} += 1;
+		}
+	}
+	
+	return \%ac_count;
+}
+
+sub get_isotype_count
+{
+	my %isotype_count = ();
+	my $iso = "";
+	
+	for my $isotype (sort @isotypes)
+	{
+		$isotype_count{$isotype} = 0;
+	}
+	
+	for (my $i = 0; $i < $tRNAs->get_count(); $i++)
+	{
+		my $tRNA = $tRNAs->get($i);
+		if ($tRNA->is_cytosolic() and !$tRNA->is_pseudo())
+		{
+			$isotype_count{$tRNA->isotype()} += 1;
+		}
+	}
+	
+	return \%isotype_count;
+}
+
+sub tertiary_filter
+{
+	print "Status: Tertiary filtering\n";
+
+	$tRNA_counts{tertiary_filter} = 0;
+	my %sec_pass_filtered_ac = ();
+	my %iso_score_cutoff = ();
+	my $count_pair = [];
+	my %filtering_isotypes = ();
+	my $tRNA_index = 0;
+	my $start_index = -1;
+	my $end_index = -1;
+	my $isotype_tRNAs = tRNAscanSE::ArraytRNA->new();
+	my $trna = undef;
+	my $find = 0;
+
+	my $ac_count = &get_ac_count();
+	
+	foreach my $ac (sort {$ac_count->{$b} <=> $ac_count->{$a}} keys %$ac_count)
+	{
+		if ($ac_count->{$ac} > $ANTICODON_COUNT_CUTOFF)
+		{
+			if (!defined $filtering_isotypes{$aa_list{$ac}})
+			{
+				$filtering_isotypes{$aa_list{$ac}} = 1;
+			}
+		}
+		else
+		{
+			last;
+		}
+	}
+
+	$tRNAs->sort_array("isotype");
+	
+	foreach my $isotype (sort keys %filtering_isotypes)
+	{
+		$iso_score_cutoff{$isotype} = $opt_isoscore2;
+		$find = 0;
+		$isotype_tRNAs->clear();
+		$start_index = -1;
+		$end_index = -1;
+		
+		while (!$find and $tRNA_index < $tRNAs->get_count())
+		{
+			if ($tRNAs->get($tRNA_index)->isotype() lt $isotype)
+			{
+				$tRNA_index++;
+			}
+			elsif ($tRNAs->get($tRNA_index)->isotype() eq $isotype)
+			{
+				if ($start_index == -1)
+				{
+					$start_index = $tRNA_index;
+				}
+				$end_index = $tRNA_index;
+				my $tRNA = $tRNAs->get($tRNA_index);
+				if (!$tRNA->is_pseudo())
+				{
+					my ($type, $model, $iso_score, $iso_ss) = $tRNA->get_highest_score_model();
+					$trna = tRNAscanSE::tRNA->new;
+					$trna->tRNAscan_id($tRNA->tRNAscan_id());
+					$trna->anticodon($tRNA->anticodon());
+					$trna->score($iso_score);
+					$isotype_tRNAs->put($trna);
+				}
+				$tRNA_index++;
+			}
+			else
+			{
+				$find = 1;
+			}
+		}
+
+		if ($find)
+		{		
+			foreach my $ac (@{$ac_list{$isotype}})
+			{
+				if ($ac ne "&nbsp")
+				{
+					my $local_ac_count = $ac_count->{$ac};
+					while ($local_ac_count > $ANTICODON_COUNT_CUTOFF and $iso_score_cutoff{$isotype} <= $opt_isomaxscore2)
+					{
+						$local_ac_count = &iso_score_filter($isotype_tRNAs, $ac, $iso_score_cutoff{$isotype}, $local_ac_count);
+						$iso_score_cutoff{$isotype}++;
+					}
+					if ($ac_count->{$ac} > $local_ac_count)
+					{
+						$iso_score_cutoff{$isotype}--;
+					}
+				}
+			}
+			
+			foreach my $ac (@{$ac_list{$isotype}})
+			{
+				if ($ac ne "&nbsp")
+				{
+					$count_pair = [];
+					$count_pair->[0] = $ac_count->{$ac};
+					$sec_pass_filtered_ac{$ac} = $count_pair;
+					for (my $i = $start_index; $i <= $end_index; $i++)
+					{
+						my $tRNA = $tRNAs->get($i);
+						my ($type, $model, $iso_score, $iso_ss) = $tRNA->get_highest_score_model();
+						if ($tRNA->isotype() eq $isotype and !$tRNA->is_pseudo())
+						{
+							if ($type eq "mito" or ($type eq "cytosolic" and $iso_score < $iso_score_cutoff{$isotype}))
+							{
+								$tRNA->pseudo(2);
+								$tRNA_counts{tertiary_filter}++;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	$ac_count = &get_ac_count();
+	foreach my $ac (sort keys %sec_pass_filtered_ac)
+	{
+		$sec_pass_filtered_ac{$ac}->[1] = $ac_count->{$ac};
+	}
+	return (\%sec_pass_filtered_ac, \%iso_score_cutoff);
+}
+
+sub iso_score_filter
+{
+	my ($isotype_tRNAs, $ac, $isotype_score_cutoff, $local_ac_count) = @_;
+	
+	my $count = $local_ac_count;
+	for (my $i = 0; $i < $isotype_tRNAs->get_count(); $i++)
+	{
+		my $tRNA = $isotype_tRNAs->get($i);
+		if ($tRNA->anticodon() eq $ac and !$tRNA->is_pseudo())
+		{
+			if ($tRNA->score() < $isotype_score_cutoff)
+			{
+				$tRNA->pseudo(1);
+				$count--;
+			}
+		}
+	}
+	return $count;
+}
+
+sub write_out_file
+{
+	my ($ac_count) = @_;
+	my $line = "";
+	my $tRNA = undef;
+	my %header = ();
+	my @columns = ();
+	my $tRNAscan_id = "";
+	my $index = -1;
+	my $include = 0;
+	my $tag = "";
+	my $ct = 0;
+
+	$tRNA_counts{iso_filter} = 0;
+	$tRNA_counts{undet_filter} = 0;
+	$tRNA_counts{ac_filter} = 0;
+	
+	print "Status: Writing output file $file_names{output_tRNAscan_out}\n";
+	
+	open(FILE_IN, "$file_names{tRNAscan_out}") or die "Fail to open $file_names{tRNAscan_out}\n";
+	open(FILE_OUT, ">$file_names{output_tRNAscan_out}") or die "Fail to open $file_names{output_tRNAscan_out}\n";
+	
+	while ($line = <FILE_IN>)
+	{
+		$ct++;
+		
+		print STDERR "." if ($ct % 1000 == 0);
+		print STDERR "\n" if ($ct % 50000 == 0);
+		
+		chomp($line);
+		if ($line =~ /^Name/)
+		{
+			$line =~ s/tRNA #/tRNA#/;
+		}
+
+		@columns = split(/\t/, $line, -1);
+		for (my $i = 0; $i < scalar(@columns); $i++)
+		{
+			$columns[$i] = &trim($columns[$i]);
+		}
+
+		if ($columns[0] =~ /^Sequence/ || $columns[0] =~ /^Name/ || $columns[0] =~ /^-----/)
+		{
+			print FILE_OUT $line."\n";
+			if ($columns[0] =~ /^Sequence/)
+			{
+				for (my $i = 0; $i < scalar(@columns); $i++)
+				{
+					if ($columns[$i] eq "Sequence")
+					{
+						$header{seqname} = $i;
+					}
+					elsif ($columns[$i] eq "Anti")
+					{
+						$header{anticodon} = $i;
+					}
+					elsif ($columns[$i] eq "Type")
+					{
+						$header{isotype_type} = $i;
+					}
+				}
+			}
+			elsif ($columns[0] =~ /^Name/)
+			{
+				for (my $i = 0; $i < scalar(@columns); $i++)
+				{
+					if ($columns[$i] eq "tRNA#")
+					{
+						$header{trna_id} = $i;
+					}
+					elsif ($columns[$i] eq "Type")
+					{
+						$header{isotype} = $i;
+					}
+					elsif ($columns[$i] eq "CM")
+					{
+						$header{isotype_cm} = $i;
+						$header{isotype_score} = $i+1;
+					}
+					elsif ($columns[$i] eq "Note")
+					{
+						$header{note} = $i;
+					}
+				}
+			}
+		}
+		else
+		{
+			$include = 0;
+			$tag = "";
+			$tRNAscan_id = $columns[$header{seqname}].".trna".$columns[$header{trna_id}]."-".$columns[$header{isotype}].$columns[$header{anticodon}];
+			$index = $tRNAs->bsearch_id($tRNAscan_id, "tRNAscan_id");
+			if ($index == -1)
+			{
+				if ($columns[$header{seqname}] eq "chrM" or $columns[$header{seqname}] eq "M" or $columns[$header{seqname}] eq "chrMT" or $columns[$header{seqname}] eq "MT")
+				{}
+				elsif (!$opt_remove)
+				{
+					$include = 1;
+				}				
+			}
+			else
+			{
+				$tRNA = $tRNAs->get($index);
+				if ($tRNA->is_pseudo() and !$opt_remove)
+				{
+					$include = 1;
+					if ($tRNA->pseudo() == 1)
+					{
+						$tag = "secondary filtered";
+					}
+					elsif ($tRNA->pseudo() == 2)
+					{
+						$tag = "tertiary filtered";
+					}
+				}
+				elsif (!$tRNA->is_pseudo())
+				{
+					$include = 1;
+					if ($columns[$header{note}] =~ /IPD/)
+					{
+						$tRNA_counts{iso_filter}++;
+						$tag = "isotype mismatch";
+					}
+					elsif ($columns[$header{isotype}] eq "Undet")
+					{
+						$tRNA_counts{undet_filter}++;
+						$tag = "undetermined isotype";
+					}
+					else
+					{
+						$tag = &euk_anticodon_filter($ac_count, $tRNA);
+						if ($tag eq "")
+						{
+							$tag = "high confidence set";
+						}						
+					}
+				}
+			}
+			if ($include)
+			{
+				for (my $i = 0; $i < $header{note}; $i++)
+				{
+					print FILE_OUT $columns[$i]."\t";
+				}
+				if ($columns[$header{note}] ne "")
+				{
+					print FILE_OUT $columns[$header{note}];
+					if ($tag ne "")
+					{
+						print FILE_OUT ",".$tag;
+					}
+				}
+				else
+				{
+					print FILE_OUT $tag;
+				}
+				for (my $i = $header{note} + 1; $i < scalar(@columns); $i++)
+				{
+					print FILE_OUT "\t".$columns[$i];
+				}
+				print FILE_OUT "\n";
+			}				
+		}
+	}
+	close(FILE_IN);
+	close(FILE_OUT);
+	
+	print STDERR "\n";
+}
+
+sub write_ss_file
+{
+	my $tRNA = undef;
+	my $line = "";	
+	my $tRNAscan_id = "";
+	my $seqname = "";
+	my $index = -1;
+	my $print_line = "";
+	my $include = 0;
+	my $tag = "";
+	my $ct = 0;
+	
+	print "Status: Writing secondary structure file $file_names{output_tRNAscan_ss}\n";
+	
+	open(FILE_IN, "$file_names{tRNAscan_ss}") || die "Error: Fail to open $file_names{tRNAscan_ss}\n";	
+	open(FILE_OUT, ">$file_names{output_tRNAscan_ss}") or die "Fail to open $file_names{output_tRNAscan_ss}\n";
+	while ($line = <FILE_IN>)
+	{
+		if ($line =~ /^(\S+)\s+\(\d+\-\d+\)\s+Length:\s\d+\sbp/)
+		{
+			$tRNAscan_id = $1;
+			$seqname = substr($tRNAscan_id, 0, rindex($tRNAscan_id, "."));
+			$print_line = $line;
+			$include = 0;
+			$tag = "";
+			
+			$ct++;			
+			print STDERR "." if ($ct % 1000 == 0);
+			print STDERR "\n" if ($ct % 50000 == 0);
+		}
+		elsif ($line =~ /^Type:\s(\S+)\s+Anticodon:\s(\S+)\sat\s.+\s\(.+\)\s+Score:\s\S+/)
+		{
+			$tRNAscan_id .= "-".$1.$2;
+			$print_line .= $line;
+			
+			$index = $tRNAs->bsearch_id($tRNAscan_id, "tRNAscan_id");
+			if ($index == -1)
+			{
+				if (!$opt_remove)
+				{
+					$include = 1;
+					$tag = "Filtered";
+				}				
+			}
+			else
+			{
+				$tRNA = $tRNAs->get($index);
+				if ($tRNA->is_pseudo() and !$opt_remove)
+				{
+					$include = 1;
+					$tag = "Filtered";
+				}
+				elsif (!$tRNA->is_pseudo())
+				{
+					$include = 1;
+				}
+			}
+		}
+		elsif ($line =~ /^HMM Sc=\S+\s+Sec struct Sc=\S+/)
+		{
+			if ($tag ne "")
+			{
+				$print_line .= $tag.":  ".$line;
+			}
+			else
+			{
+				$print_line .= $line;
+			}
+		}
+		elsif (($line =~ /^Possible pseudogene:\s+HMM Sc=\S+\s+Sec struct Sc=\S+/)
+			or ($line =~ /^Possible truncation, pseudogene:\s+HMM Sc=\S+\s+Sec struct Sc=\S+/))
+		{
+			if ($tag ne "")
+			{
+				$print_line .= $tag.", ".$line;
+			}
+			else
+			{
+				$print_line .= $line;
+			}
+		}
+		elsif ($line =~ /^Possible intron: \d+-\d+ \(\d+-\d+\)/)
+		{
+			$print_line .= $line;
+		}
+		elsif (index($line, "     *    |    *    |    *    |") > -1)
+		{
+			$print_line .= $line;
+		}
+		elsif ($line =~ /^Seq:\s\S+$/)
+		{
+			$print_line .= $line;
+		}
+		elsif ($line =~ /^Str:\s\S+$/)
+		{
+			$print_line .= $line;
+			if ($seqname eq "chrM" or$seqname eq "M" or $seqname eq "chrMT" or $seqname eq "MT")
+			{}
+			elsif ($include)
+			{
+				print FILE_OUT $print_line."\n";
+			}
+		}
+	}
+	close(FILE_IN);
+	close(FILE_OUT);
+	
+	print STDERR "\n";
+}
+
+sub write_summary
+{
+	my ($sec_pass_filtered_ac, $iso_score_cutoff) = @_;
+	
+	print "Status: Writing summary file $file_names{log}\n";
+	
+	open(FILE_OUT, ">$file_names{log}") or die "Fail to open $file_names{log}\n";
+	
+	print FILE_OUT "EukHighConfidenceFilter v1.0 Summary\n",
+		"Completed Time: ".localtime()."\n\n";
+	print FILE_OUT "Inputs\n",
+		"------------------------------------------------------\n",
+		"tRNAscan-SE output file: ".$file_names{tRNAscan_out}."\n",
+		"tRNAscan-SE ss file: ".$file_names{tRNAscan_ss}."\n";
+	if ($opt_cmscore1 == -1)
+	{
+		print FILE_OUT "Secondary filtering domain-specific model score: Disabled\n";
+	}
+	else
+	{
+		print FILE_OUT "Secondary filtering domain-specific model score cutoff: $opt_cmscore1\n";
+	}
+	if ($opt_ssscore1 == -1)
+	{
+		print FILE_OUT "Secondary filtering secondary structure score: Disabled\n";
+	}
+	else
+	{
+		print FILE_OUT "Secondary filtering secondary structure score cutoff: $opt_ssscore1\n";
+	}
+	if ($opt_isoscore1 == -1)
+	{
+		print FILE_OUT "Secondary filtering isotype-specific model score: Disabled\n";
+	}
+	else
+	{
+		print FILE_OUT "Secondary filtering isotype-specific model score cutoff: $opt_isoscore1\n";
+	}
+	if ($opt_isoscore2 == -1)
+	{
+		print FILE_OUT "Tertiary filtering isotype-specific model score: Disabled\n";
+	}
+	else
+	{
+		print FILE_OUT "Tertiary filtering isotype-specific model starting score cutoff: $opt_isoscore2\n";
+		print FILE_OUT "Tertiary filtering maximum isotype-specific model score cutoff: $opt_isomaxscore2\n";
+	}
+	if ($opt_remove)
+	{
+		print FILE_OUT "Remove filtered hits: Yes\n";
+	}
+	else
+	{
+		print FILE_OUT "Remove filtered hits: No\n";
+	}
+	print FILE_OUT "\n";
+	print FILE_OUT "Outputs\n",
+		"------------------------------------------------------\n",
+		"tRNAscan-SE output file: ".$file_names{output_tRNAscan_out}."\n",
+		"tRNAscan-SE ss file: ".$file_names{output_tRNAscan_ss}."\n",
+		"Summary file: ".$file_names{log}."\n\n";
+	
+	my $remaining_hits = $tRNA_counts{total} - $tRNA_counts{pseudo_filter};
+	print FILE_OUT "Summary statistics\n",
+		"------------------------------------------------------\n";
+	print FILE_OUT "Total tRNA predictions:                                ".$tRNA_counts{total}."\n";
+	print FILE_OUT "Possible pseudogenes:                                  ".$tRNA_counts{pseudo_filter}."\n";
+	if ($opt_isoscore1 > -1 or $opt_ssscore1 > -1 or $opt_cmscore1 > -1)
+	{
+		print FILE_OUT "tRNAs with scores lower than secondary cutoffs:        ".$tRNA_counts{secondary_filter}."\n";
+
+		$remaining_hits -= $tRNA_counts{secondary_filter};
+	}
+	if ($opt_isoscore2 > -1)
+	{
+		$remaining_hits -= $tRNA_counts{tertiary_filter};
+		print FILE_OUT "tRNAs failed tertiary filter:                          ".$tRNA_counts{tertiary_filter}."\n\n";
+	}
+	print FILE_OUT "tRNAs after filtering:                                 ".$remaining_hits."\n\n";
+	print FILE_OUT "tRNAs with mismatched isotype:                         ".$tRNA_counts{iso_filter}."\n";
+	print FILE_OUT "tRNAs with undetermined isotype:                       ".$tRNA_counts{undet_filter}."\n";
+	print FILE_OUT "tRNAs with unexpected anticodon:                       ".$tRNA_counts{ac_filter}."\n\n";
+	print FILE_OUT "High confidence set:                                   ".($remaining_hits - $tRNA_counts{iso_filter} - $tRNA_counts{undet_filter} - $tRNA_counts{ac_filter})."\n\n";
+	
+	if ($opt_isoscore2 > -1 and $tRNA_counts{tertiary_filter} > 0)
+	{
+		print FILE_OUT "Tertiary filter - anticodon counts\n",
+			"------------------------------------------------------\n\n";
+		print FILE_OUT "Isotype  Anticodon  BeforeFiltering  AfterFiltering  FinalScoreCutoff\n";
+		foreach my $isotype (sort keys %$iso_score_cutoff)
+		{
+			foreach my $ac (@{$ac_list{$isotype}})
+			{
+				if ($ac ne "&nbsp" and defined $euk_aa_list{$ac})
+				{
+					printf FILE_OUT "%-7s  %-9s  %-15d  %-14d  %-16d\n",
+						$isotype, $ac, $sec_pass_filtered_ac->{$ac}->[0], $sec_pass_filtered_ac->{$ac}->[1], $iso_score_cutoff->{$isotype};
+				}
+			}
+		}
+		print FILE_OUT "\n";
+	}
+	
+	my $ac_count = &get_ac_count();
+	my %isotype_count = ();
+	foreach my $ac (sort keys %aa_list)
+	{
+		if (!defined $isotype_count{$aa_list{$ac}})
+		{
+			$isotype_count{$aa_list{$ac}} = $ac_count->{$ac};
+		}
+		else
+		{
+			$isotype_count{$aa_list{$ac}} += $ac_count->{$ac};
+		}
+	}
+	
+	print FILE_OUT "Isotype / Anticodon Counts After Filtering\n",
+		"------------------------------------------------------\n\n";
+    
+    foreach my $aa (@isotypes)
+    {		
+        my $iso_count = 0;
+        if (defined $isotype_count{$aa})
+        {
+            $iso_count = $isotype_count{$aa};
+        }
+		if ($aa eq "SeC")
+		{
+			printf FILE_OUT ("%-8s: %d\t", "SelCys", $iso_count);
+		}
+		elsif ($aa eq "Sup")
+		{
+			printf FILE_OUT ("%-8s: %d\t", "Supres", $iso_count);
+		}
+		else
+		{
+			printf FILE_OUT ("%-8s: %d\t", $aa, $iso_count);
+		}
+
+	    foreach my $ac (@{$ac_list{$aa}})
+        {
+			if ($ac eq "&nbsp")
+			{
+				print FILE_OUT "             ";
+			}
+			else
+			{
+				if (defined $ac_count->{$ac})
+				{
+					printf FILE_OUT ("%5s: %-6s", $ac, $ac_count->{$ac});
+				}
+				else
+				{
+					printf FILE_OUT ("%5s: %-6s", $ac, "");
+				}
+			}
+	    }
+	    print FILE_OUT "\n";
+	}
+    print FILE_OUT "\n";
+	
+	close(FILE_OUT);
+}
+
+sub trim
+{
+	my $string = shift;
+	$string =~ s/^\s+//;
+	$string =~ s/\s+$//;
+	return $string;
+}

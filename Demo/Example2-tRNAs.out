@@ -1,0 +1,9 @@
+Sequence		tRNA	Bounds	tRNA	Anti	Intron Bounds	Inf	HMM	2'Str	Hit	Isotype	Isotype	      
+Name    	tRNA #	Begin	End	Type	Codon	Begin	End	Score	Score	Score	Origin	CM	Score	Note
+--------	------	-----	------	----	-----	-----	----	------	-----	-----	------	-------	-------	------
+MySeq1  	1	13 	85 	Thr	TGT	0	0	78.0	54.80	23.20	Inf	Thr	93.1	
+MySeq2  	1	6  	79 	Arg	TCT	0	0	75.1	56.60	18.50	Inf	Arg	89.3	
+MySeq3  	1	14 	114	Ser	CGA	51	69	71.8	49.10	22.70	Inf	Ser	118.3	
+MySeq4  	1	6  	88 	Leu	AAG	0	0	65.0	43.90	21.10	Inf	Leu	92.2	
+MySeq5  	1	3  	89 	SeC	TCA	0	0	146.9	0.00	0.00	Inf	SeC	146.9	
+MySeq6  	1	7  	92 	Lys	CTT	0	0	72.1	40.60	31.50	Inf	Leu	75.7	ISM (-73.90)

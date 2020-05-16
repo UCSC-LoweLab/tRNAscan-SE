@@ -1,0 +1,1923 @@
+#! /usr/bin/perl
+#
+# --------------------------------------------------------------------
+# tRNAscan-SE: a program for improved detection of transfer RNA
+#              genes in genomic sequence
+#
+# Version 2.0
+#
+# Copyright (C) 2017 Patricia Chan and Todd Lowe 
+#
+# School of Engineering, University of California, Santa Cruz
+# lowe@soe.ucsc.edu
+# http://lowelab.ucsc.edu/
+# --------------------------------------------------------------------
+#
+# Usage:
+# tRNAscan-SE [options] <FASTA file(s)> 
+#                           
+
+use strict;
+use lib "@libdir@/tRNAscan-SE";
+use Getopt::Long;
+use tRNAscanSE::Configuration;
+use tRNAscanSE::tRNA;
+use tRNAscanSE::SprinzlPos;
+use tRNAscanSE::ArraytRNA;
+use tRNAscanSE::Utils;
+use tRNAscanSE::GeneticCode;
+use tRNAscanSE::Options;
+use tRNAscanSE::Eufind;
+use tRNAscanSE::Tscan;
+use tRNAscanSE::CM;
+use tRNAscanSE::LogFile;
+use tRNAscanSE::Stats;
+use tRNAscanSE::Sequence;
+use tRNAscanSE::FpScanResultFile;
+use tRNAscanSE::ScanResult;
+use tRNAscanSE::IntResultFile;
+use tRNAscanSE::MultiResultFile;
+use tRNAscanSE::SS;
+
+our $version = "2.0"; 
+our $release_date = "December 2017";
+our $program_id = "tRNAscan-SE-".$version;
+
+# modified by 'make'
+our $default_conf = "@bindir@/tRNAscan-SE.conf";
+
+# Signal handling
+$SIG{'TERM'} = 'error_handler';
+$SIG{'QUIT'} = 'error_handler';
+$SIG{'INT'} = 'error_handler';
+
+# Global variables
+our @fp_start_time;                                                
+our $opts = tRNAscanSE::Options->new;
+our $global_constants = tRNAscanSE::Configuration->new();
+our $log = tRNAscanSE::LogFile->new("default");
+our $sprinzl = tRNAscanSE::SprinzlPos->new;
+our $fp_tRNAs = tRNAscanSE::ArraytRNA->new;
+our $sp_tRNAs = tRNAscanSE::ArraytRNA->new;
+our $fp_result_file = tRNAscanSE::FpScanResultFile->new("");
+our $sp_int_results = tRNAscanSE::IntResultFile->new;
+our $iso_int_results = tRNAscanSE::MultiResultFile->new;
+our $gc = tRNAscanSE::GeneticCode->new;
+our $stats = tRNAscan::Stats->new;
+our $seq_file = tRNAscanSE::Sequence->new;
+our $eufind = tRNAscanSE::Eufind->new;
+our $tscan = tRNAscanSE::Tscan->new;
+our $cm = tRNAscanSE::CM->new;
+
+$global_constants->config_file($default_conf);
+
+our %global_vars = (global_constants => $global_constants,
+					log_file => $log,
+					options => $opts,
+                    sprinzl => $sprinzl,
+                    fp_tRNAs => $fp_tRNAs,
+                    sp_tRNAs => $sp_tRNAs,
+                    fp_result_file => $fp_result_file,
+                    sp_int_results => $sp_int_results,
+                    iso_int_results => $iso_int_results,
+                    sequence => $seq_file,
+                    gc => $gc,
+                    stats => $stats
+                   );
+
+# set user-selectable options
+&set_options();
+
+# set location of binaries & data files, 
+# plus, check to make sure they are there
+$cm->set_file_paths(\%global_vars);
+$cm->check_lib_files($opts);
+$cm->set_bin($global_constants->get("bin_dir"));
+$cm->set_infernal_bin($global_constants->get("infernal_dir"));
+$eufind->set_bin($global_constants->get("bin_dir"));
+$tscan->set_bin($global_constants->get("bin_dir"));
+
+# initialize variables
+$gc->read_transl_table($opts);
+if ($opts->save_stats())
+{
+    $stats->file_name($opts->stats_file());
+}
+
+# Start processing
+&initialize_process();
+
+# prescan with either tRNAscan/eufind or both
+if ($opts->tscan_mode() || $opts->eufind_mode() || $opts->infernal_fp())
+{   
+    &first_pass_prescan();  
+}       
+
+# Check to see if no sequences were read from input file(s)
+if (($stats->numscanned() == 0) && ($opts->eufind_mode() || $opts->tscan_mode() || $opts->infernal_fp()))
+{
+    if ($opts->seq_key() ne '\S*')
+    {
+        die "\nNo FASTA sequences matching \'".$opts->raw_seq_key()."\' key found\n\n";
+    }
+    elsif ($opts->multiple_files())
+    {
+        die "\nFATAL: No sequences in FASTA format found in ", join(', ',@ARGV),"\n\n";
+    }
+    else
+    {
+        die "\nFATAL: No sequences in FASTA format found in file ".$opts->fastafile()."\n\n";
+    }
+}
+
+# Run Cove or Infernal on candidate tRNAs picked in first pass,
+#  or by itself on seqs if no first pass searches
+elsif ($opts->cove_mode() || $opts->infernal_mode())
+{
+    $sp_int_results->file_name($opts->secondpass_int_result_file());
+    $iso_int_results->file_name($opts->isotype_int_result_file());
+    &run_cm_scan();
+}       
+
+$stats->end_sp_timer();
+
+if ($opts->save_stats())
+{
+    $stats->open_file();
+    $stats->save_final_stats($opts, $gc, $fp_result_file->get_hit_count(), $cm->tab_results());
+    $stats->close_file();
+}
+
+$log->finish_process();
+
+&cleanup();                        # clean up temp files
+exit(0);
+
+# END main
+
+
+sub initialize_process
+{    
+    # print program info header, credits, & selected run options
+    if (!$opts->quiet_mode())
+    {
+        print STDERR "\ntRNAscan-SE v.$version ($release_date) -",
+            " scan sequences for transfer RNAs\n";
+        &display_credits();
+        $opts->display_run_options($cm, $tscan, $eufind, $global_constants, *STDERR);
+    }
+    
+    $stats->start_fp_timer();                    # save starting time
+    
+    # if statistics are being saved, write run options in stats file
+    if ($opts->save_stats())
+    {
+        my $host = `hostname`;
+        chomp($host);
+        $stats->open_file();
+        $stats->write_line("\ntRNAscan-SE v.$version ($release_date) scan results (on host $host)\nStarted: ".`date`);
+        $opts->display_run_options($cm, $tscan, $eufind, $global_constants, $stats->FILE_H());
+        $stats->close_file();
+    }
+}
+
+# Running tRNAscan and/or EufindtRNA  
+sub first_pass_prescan
+{
+    if ($opts->infernal_fp())
+    {
+        $log->status("Phase I: Searching for tRNAs with HMM-enabled Infernal");
+    }
+    else
+    {
+        $log->status("Phase I: Searching for tRNAs with tRNAscan and/or EufindtRNA");
+    }
+
+    # open seq file to search
+    $seq_file->open_file($opts->fasta_file(), "read");
+
+    # Main loop for reading seqs & scanning with tRNAscan and/or EufindtRNA    
+    my $targ_seq_id = 0;      # Don't look for a specific Seq number
+    my $start_index = 1;
+    my $sequence_scanned = 0;
+    my $printed_header = 0;
+    my $eufind_output;
+    my @hit_list = ();
+    my $tmp_raw = $global_constants->get("tmp_raw");
+    my $tmp_fa = $global_constants->get("tmp_fa");
+    my $tmp_fa_file = tRNAscanSE::Sequence->new;
+    my $missing_fa_file = tRNAscanSE::Sequence->new;
+    
+    while ($seq_file->read_fasta($opts, $targ_seq_id))
+    {
+        if ($opts->cove_mode() || $opts->infernal_mode())
+        {
+            $log->broadcast("Scanned seqs: ".$stats->numscanned()." (at ".$seq_file->seq_name().")");
+        }
+        $stats->increment_numscanned();
+        $stats->increment_first_pass_base_ct($seq_file->seq_length());
+                
+        do
+        {
+            # Write one input sequence / seq buffer to tmp_fa file            
+            $tmp_fa_file->open_file($tmp_fa, "write");
+            $tmp_fa_file->set_seq_info($seq_file->seq_name(), $seq_file->seq_description(),
+                                       $seq_file->seq_length(), $seq_file->sequence());
+            $tmp_fa_file->write_fasta();
+            $tmp_fa_file->close_file();
+            
+            if ($opts->infernal_fp())
+            {
+                $cm->first_pass_scan(\%global_vars, $start_index, $seq_file->seq_name());
+            }
+            else
+            {
+                # Run tRNAscan on $tmp_fa file & write results to $tmp_raw output file           
+                if ($opts->tscan_mode())
+                {
+                    $tscan->run_tRNAscan($tmp_fa, $tmp_raw, $start_index, $global_constants->get("lib_dir"), $seq_file->seq_name());
+                    if ($opts->save_verbose())
+                    {
+                        $tscan->append_verbfile($opts->verb_file(), $tmp_fa, $seq_file->seq_name());
+                    }
+                    $tscan->process_tRNAscan_hits(\%global_vars, $seq_file->seq_name());
+                }
+                
+                # Run eufindtRNA program & save results in memory in $Eufind_output array            
+                if ($opts->eufind_mode())
+                {
+                    $eufind_output = $eufind->run_eufind($tmp_fa, $start_index, $opts->max_int_len(), $seq_file->seq_name());
+                    if ($eufind_output ne "")
+                    {
+                        $eufind->process_Eufind_hits(\%global_vars, $eufind_output);
+                        $eufind_output = "";
+                    }
+                }
+            }
+            $sequence_scanned = 1;    # Flag indicating current sequence has been scanned 
+
+            # Check to see if all of sequence was read in last buffer-sized chunck            
+            if ($seq_file->seq_buf_overrun())
+            {
+                $start_index = $seq_file->buffer_end_index() + 1;
+                if ($seq_file->read_more_fasta())
+                {
+                    $sequence_scanned = 0;
+                }
+            }
+            
+        }
+        until ($sequence_scanned); 
+        
+        if ($fp_tRNAs->get_count() > 0)
+        {
+            $stats->increment_seqs_hit();
+            
+            # save results in ACeDB format now if not using Cove analysis
+            if ($opts->ace_output() && (!$opts->CM_mode()))
+            {
+                &save_Acedb_from_firstpass($opts->output_codon(), $gc->one_let_trans_map(), $fp_tRNAs, $opts->out_file());
+            }
+            else
+            {
+                # save all hits for this seq
+                my $fpass_trna_base_ct = $stats->fpass_trna_base_ct();
+                if (!$opts->CM_mode())
+                {
+                    if (!($opts->brief_output() || $printed_header))
+                    {
+                        &open_for_append(\*TABOUT, $opts->out_file());
+                        &print_results_header(\*TABOUT, $opts, 0, 8, 8, 1);
+                        close (TABOUT);
+                        $printed_header = 1;
+                    }
+                }
+                $fp_result_file->save_firstpass_output($opts, $fp_tRNAs, \$fpass_trna_base_ct, $seq_file->seq_length(), $seq_file->seq_id());
+                $stats->fpass_trna_base_ct($fpass_trna_base_ct);
+            }
+
+            # clear hit array
+            $fp_tRNAs->clear();
+        }
+        elsif ($opts->save_missed())
+        {
+            # save sequence that had no tRNA hits if -M param set
+            # NOTE: only writes last frame of seq buffer if seq length > max_seq_buffer
+            $missing_fa_file->open_file($opts->missed_seq_file(), "append");
+            $missing_fa_file->set_seq_info($seq_file->seq_name(), $seq_file->seq_description(), $seq_file->seq_length(), $seq_file->sequence());
+            $missing_fa_file->write_fasta();
+            $missing_fa_file->close_file();
+        }
+        
+        $seq_file->reset_buffer_ct();
+        $start_index = 1;
+        
+    }     # while (read_fasta()) - still more seqs to scan
+
+    $seq_file->close_file();
+                                        # remove temporary files
+    system("rm -f $tmp_raw $tmp_fa");
+    $seq_file->release_memory();        # release memory
+      
+    $log->broadcast("\n".$stats->numscanned()." seqs scanned, ".$stats->seqs_hit()." seqs had at ".
+        "least one hit.\n".$stats->trnatotal()." total tRNAs predicted in first pass scans"); 
+
+    if ((!$opts->CM_mode()) && ($stats->trnatotal() == 0)  && (!$opts->quiet_mode()))
+    {
+        $log->status("No tRNAs found.");
+    }
+    
+    $stats->end_fp_timer();             # save time first-pass scans are done
+
+    if ($opts->save_stats())
+    {
+        $stats->open_file();
+        $stats->save_firstpass_stats();
+        $stats->close_file();
+    }    
+}
+
+# Run Cove or Infernal
+sub run_cm_scan
+{    
+    $stats->start_sp_timer();
+    
+    if ($opts->tscan_mode() || $opts->eufind_mode() || $opts->infernal_fp())
+    {
+        $log->status("Phase II: ".$opts->second_pass_label()." verification of candidate ".
+            "tRNAs detected with first-pass scan"); 
+    }
+    else
+    {
+        $log->status("Running ".$opts->second_pass_label()." analysis");
+        if (!$opts->use_prev_ts_run())
+        {
+            $fp_result_file->prep_for_secpass_only($opts, $stats, $seq_file);
+        }
+    }
+    
+    # Name of tRNA sequence currently in memory
+    my $prev_seq_name = '';
+    
+    # flag indicates if seqid and seqlen are saved in firstpass result file
+    my $seqinfo_flag = 0;           
+
+    my $curseq_trnact = 0;
+    my $prescan_trna = tRNAscanSE::tRNA->new;
+    my $tRNAs_found = 0;
+    my $index = -1;
+
+    $seq_file->open_file($opts->fasta_file(), "read");
+    $fp_result_file->index_results(\$seqinfo_flag);
+    my @fp_result_file_indexes = $fp_result_file->get_indexes();
+    $fp_result_file->open_file();
+
+    for (my $seq_ct = 0; $seq_ct < scalar(@fp_result_file_indexes); $seq_ct++)
+    {
+        $sp_int_results->file_name($opts->secondpass_int_result_file());
+        $global_vars{sp_int_results} = $sp_int_results;
+        $sp_int_results->open_file("write");
+        $sp_tRNAs->clear();
+        $log->broadcast("Scanning ".$fp_result_file_indexes[$seq_ct]->[1]);
+        
+        if ($opts->cove_mode()) 
+        {
+            $fp_result_file->reset_current_seq();
+            $fp_result_file->get_next_tRNA_candidate($opts, $seqinfo_flag, $seq_ct, $prescan_trna);
+            while ($prescan_trna->seqname() ne "")
+            {
+                # Retrieve tRNA sequence and write to tmp_trnaseq_file
+                if (!&prepare_tRNA_to_scan($seq_file, $prescan_trna))
+                {
+                    next;
+                }
+                $tRNAs_found = $cm->analyze_with_cove(\%global_vars, $prescan_trna, \$curseq_trnact);
+                if (!$cm->CM_check_for_introns())
+                {
+                    $stats->increment_total_secpass_ct($tRNAs_found);
+                }
+                
+                $fp_result_file->get_next_tRNA_candidate($opts, $seqinfo_flag, $seq_ct, $prescan_trna);
+            }
+        }
+        else
+        {
+            # Retrieve tRNA sequences and write to tmp_trnaseq_file
+            if (!&prepare_multi_tRNAs_to_scan($seqinfo_flag, $seq_file, $seq_ct))
+            {
+                next;
+            }
+            
+            if ($opts->mito_mode())
+            {
+                $tRNAs_found = $cm->analyze_mito(\%global_vars, $seqinfo_flag, $seq_ct, $fp_result_file_indexes[$seq_ct]->[1], \$curseq_trnact);
+            }
+            elsif($opts->alternate_mode())
+            {
+                $tRNAs_found = $cm->analyze_alternate(\%global_vars, $seqinfo_flag, $seq_ct, $fp_result_file_indexes[$seq_ct]->[1], \$curseq_trnact);
+            }
+            elsif ($opts->metagenome_mode())
+            {
+                
+            }
+            elsif ($opts->numt_mode())
+            {
+                
+            }
+            elsif ($opts->infernal_mode()) 
+            {
+                $tRNAs_found = $cm->analyze_with_cmsearch(\%global_vars, $seqinfo_flag, $seq_ct, $fp_result_file_indexes[$seq_ct]->[1], \$curseq_trnact);
+            }
+            
+            $stats->increment_total_secpass_ct($tRNAs_found);
+        }
+        
+        $sp_int_results->close_file();
+        
+        if (($curseq_trnact > 0) and $cm->CM_check_for_introns())
+        {
+            if (&prepare_intron_scan($seq_file))
+            {
+                $cm->scan_noncanonical_introns(\%global_vars, $fp_result_file_indexes[$seq_ct]->[1]);
+            }            
+        }
+        
+        if ($curseq_trnact > 0)
+        {
+            if ($opts->euk_mode() or $opts->bact_mode() or $opts->arch_mode())
+            {
+                $cm->truncated_tRNA_search(\%global_vars, $fp_result_file_indexes[$seq_ct]->[1]);
+            
+                if (!$opts->no_isotype())
+                {
+                    $cm->isotype_cmsearch(\%global_vars);
+                }
+            }
+            
+            &output_tRNA(\%global_vars, $cm, $cm->tab_results(), $cm->get_hmm_score(), $program_id);
+        }
+
+        if (($sp_int_results->get_count() > 0) and $cm->CM_check_for_split_halves())
+        {
+            my @sp_indexes = $sp_int_results->get_indexes();
+            if ($sp_int_results->open_file("read"))
+            {
+                for (my $i = 0; $i < scalar(@sp_indexes); $i++)
+                {
+                    my $cm_tRNA = tRNAscanSE::tRNA->new;    
+                    $sp_int_results->get_tRNA($sp_indexes[$i]->[0], $cm_tRNA);
+                    $sp_tRNAs->put($cm_tRNA);
+                }
+                $sp_int_results->close_file();
+            
+                $cm->scan_split_tRNAs(\%global_vars);
+            }
+        }
+    
+        if ($opts->bed_file() ne "")
+        {
+            if ($curseq_trnact > 0)
+            {
+                &write_bed(\%global_vars);
+            }
+        }
+        
+        $sp_int_results->clear_index();
+        $curseq_trnact = 0;
+    }
+    
+    $fp_result_file->close_file();
+    $seq_file->close_file();
+    
+    if (($stats->total_secpass_ct() == 0) && (!$opts->quiet_mode()))
+    {
+        print STDERR "No tRNAs found.\n\n";
+    }
+}
+
+# Extracts tRNA sequences with given coordinates, and writes to $tmp_
+sub prepare_multi_tRNAs_to_scan
+{    
+    my ($seqinfo_flag, $seq_file, $seq_ct) = @_;
+    
+    system("rm -f ".$global_constants->get("tmp_trnaseq_file"));
+
+    my $trna_file = tRNAscanSE::Sequence->new;
+    $trna_file->open_file($global_constants->get("tmp_trnaseq_file"), "write");
+
+    my $flanking = 0;
+    my $trna = tRNAscanSE::tRNA->new;
+    $fp_result_file->reset_current_seq();
+    $fp_result_file->get_next_tRNA_candidate($opts, $seqinfo_flag, $seq_ct, $trna);
+    if ($fp_result_file->open_flanking("write"))
+    {
+        $flanking = 1;
+    }
+    while ($trna->seqname() ne "")
+    {
+        $seq_file->get_tRNA_sequence(\%global_vars, $trna);
+        $stats->increment_secpass_base_ct($trna->len());
+		$trna_file->set_seq_info($trna->seqname().".t".&pad_num($trna->id(), 6), $seq_file->seq_description(), length($trna->seq()), $trna->seq());
+		$trna_file->write_fasta();
+        if ($flanking)
+        {
+            $fp_result_file->write_tRNA_flanking($trna);
+        }
+
+        $seq_file->release_memory();
+        
+        $fp_result_file->get_next_tRNA_candidate($opts, $seqinfo_flag, $seq_ct, $trna);
+    }
+    $trna_file->close_file();
+    $fp_result_file->close_flanking();
+    
+    return 1;
+}
+
+# Extracts tRNA sequence with given coordinates, and writes to $tmp_
+sub prepare_tRNA_to_scan
+{    
+    my ($seq_file, $trna) = @_;
+    
+    $seq_file->get_tRNA_sequence(\%global_vars, $trna);    
+    $stats->increment_secpass_base_ct($trna->len());
+    
+    &write_tRNA($global_constants->get("tmp_trnaseq_file"), $seq_file->seq_name(), $seq_file->seq_description(), $trna->seq(), 1);
+    
+    $seq_file->release_memory();
+    
+    return 1;
+}
+
+# Extracts tRNA sequences with given coordinates, and writes to $tmp_
+sub prepare_intron_scan
+{    
+    my ($seq_file) = @_;
+    my $ret_value = 1;
+    
+    system("rm -f ".$global_constants->get("tmp_trnaseq_file"));
+
+    my $trna_file = tRNAscanSE::Sequence->new;
+    my $cm_tRNA = undef;    
+    $trna_file->open_file($global_constants->get("tmp_trnaseq_file"), "write");
+
+    my $trna = tRNAscanSE::tRNA->new;
+    my $padded_seq = "";
+    $sp_tRNAs->clear();
+    my @sp_indexes = $sp_int_results->get_indexes();
+    if ($sp_int_results->open_file("read"))
+    {
+        for (my $i = 0; $i < scalar(@sp_indexes); $i++)
+        {
+            $cm_tRNA = tRNAscanSE::tRNA->new;    
+            $sp_int_results->get_tRNA($sp_indexes[$i]->[0], $cm_tRNA);
+            my $orig_seq = $cm_tRNA->seq();
+            $seq_file->get_tRNA_sequence(\%global_vars, $cm_tRNA);
+            if (uc($orig_seq) ne uc($cm_tRNA->seq()))
+            {
+				$ret_value = 0;
+                $log->error("tRNA sequence does not match for intron scan: ".$cm_tRNA->tRNAscan_id()." ".$cm_tRNA->seqname().":".$cm_tRNA->start()."-".$cm_tRNA->end());
+			}			
+            $padded_seq = $cm_tRNA->upstream().$cm_tRNA->seq().$cm_tRNA->downstream();
+            $trna_file->set_seq_info($cm_tRNA->seqname().".trna".&pad_num($cm_tRNA->id(), 6), $cm_tRNA->tRNAscan_id(), length($padded_seq), $padded_seq);
+            $trna_file->write_fasta();
+            $sp_tRNAs->put($cm_tRNA);
+            $seq_file->release_memory();
+        }
+        $sp_int_results->close_file();
+    }
+    $trna_file->close_file();
+   
+    return $ret_value;
+}
+
+# clean up temp files
+sub cleanup
+{                       
+    system("rm -f ".$global_constants->get("temp_dir")."/tscan$$".'*');
+    system("rm -f ".$opts->fafile().".pid");
+}
+
+sub error_handler
+{    
+    print "\nAborting tRNAscan-SE\n\n";
+
+    my $ppid = $$;
+    my $psout = `ps -ef`;
+    my @ps_lines = split(/\n/,$psout);
+    foreach my $line (0..$#ps_lines)
+    {
+        if ($ps_lines[$line] =~/^\s+\S+\s+(\d+)\s+($ppid)\s/)
+        {
+           print STDERR "Killing process $1:\n",$ps_lines[$line],"\n";
+            my $killct = kill 'KILL', $1;
+           print STDERR "$killct jobs received the kill signal\n";
+        }
+    }
+    
+    &cleanup();
+    exit(1);
+}
+
+sub display_credits
+{
+    print STDERR "Copyright (C) 2017 Patricia Chan and Todd Lowe\n",
+                 "                   University of California Santa Cruz\n",
+                 "Freely distributed under the GNU General Public License (GPLv3)\n\n";
+}
+
+sub print_usage
+{
+    print STDERR "\nUsage: tRNAscan-SE [-options] <FASTA file(s)>\n\n";
+    print STDERR "  Scan a sequence file for tRNAs \n",
+    "          -- default: use Infernal & tRNA covariance models\n",
+    "             with eukaryotic sequences \n",
+    "             (use -B, -A, -M, -O or -G to scan other types of sequences)\n\n",
+    "Basic Options\n",
+    "  -E         : search for eukaryotic tRNAs (default)\n",
+    "  -B         : search for bacterial tRNAs\n",
+    "  -A         : search for archaeal tRNAs\n",
+    "  -M <model> : search for mitochondrial tRNAs\n",
+    "                 options: mammal, vert\n",
+    "  -O         : search for other organellar tRNAs\n",
+    "  -G         : use general tRNA model (cytoslic tRNAs from all 3 domains included)\n",
+    "  -L         : search using the legacy method (tRNAscan, EufindtRNA, and COVE)\n",
+    "                 use with -E, -B, -A, -O, or -G\n",
+    "  -I         : search using Infernal (default)\n",
+    "                 use with -E, -B, -A, -O, or -G\n",
+#    "  -T         : search for tRNAs in metagenome\n",
+#    "  -N         : search for tRNAs in nuclear mitochondrial DNA regions (NUMTs)\n",
+    "  -o <file>  : save final results in <file>\n",
+    "  -f <file>  : save tRNA secondary structures to <file>\n",
+    "  -m <file>  : save statistics summary for run in <file>\n",
+    "               (speed, # tRNAs found in each part of search, etc)\n",        
+    "  -H         : show both primary and secondary structure components to\n",
+    "               covariance model bit scores\n",
+    "  -q         : quiet mode (credits & run option selections suppressed)\n\n",
+    "  -h         : print full list (long) of available options\n\n";
+}
+
+sub print_all_options
+{
+    print "\nUsage: tRNAscan-SE [-options] <FASTA file(s)>\n\n";
+    print "  Scan a sequence file for tRNAs \n",
+    "   -- default: use Infernal & tRNA covariance models\n",
+    "      with eukaryotic sequences \n",
+    "      (use 'Search Mode Options' below to scan other types of sequences)\n\n",
+    "Search Mode Options:\n\n",
+    "  -E                          : search for eukaryotic tRNAs (default)\n",
+    "  -B                          : search for bacterial tRNAs\n",
+    "  -A                          : search for archaeal tRNAs\n",
+    "  -M <model>                  : search for mitochondrial tRNAs\n",
+    "                                  options: mammal, vert\n",
+    "  -O                          : search for other organellar tRNAs\n",
+    "  -G                          : use general tRNA model (cytoslic tRNAs from all 3 domains included)\n",
+    "  --mt <model>                : use mito tRNA models for cytosolic/mito detemination\n",
+    "                                  (if not specified, only cytosolic isotype-specific model scan will be performed)\n",
+#    "  -T                          : search for tRNAs in metagenome\n",
+#    "  -N                          : search for tRNAs in nuclear mitochondrial DNA regions (NUMTs)\n",
+    "  -I                          : search using Infernal\n",
+    "                                  default use with -E, -B, -A, or -G; optional for -O\n",
+    "      --max                   : maximum sensitivity mode - search using Infernal without hmm filter (very slow)\n",
+    "  -L                          : search using the legacy method (tRNAscan, EufindtRNA, and COVE)\n",
+    "                                  use with -E, -B, -A or -G\n",
+    "  -C  --cove                  : search using COVE analysis only (legacy, extremely slow)\n",
+    "                                  default use with -O\n",
+    "  -H  --breakdown             : show breakdown of primary and secondary structure components to\n",
+    "                                  covariance model bit scores\n",
+    "  -D  --nopseudo              : disable pseudogene checking\n\n",
+        
+    "Output options:\n\n",
+    "  -o  --output <file>         : save final results in <file>\n",
+    "  -f  --struct <file>         : save tRNA secondary structures to <file>\n",
+    "  -s  --isospecific <file>    : save results using isotype-specific models in <file>\n",
+    "  -m  --stats <file>          : save statistics summary for run in <file>\n",
+    "                                  (speed, # tRNAs found in each part of search, etc)\n",        
+    "  -b  --bed <file>            : save results in BED file format of <file>\n",
+    "  -a  --fasta <file>          : save predicted tRNA sequences in FASTA file format of <file>\n",
+    "  -l  --log <file>            : save log of program progress in <file>\n",
+    "  --detail                    : display prediction outputs in detailed view\n",
+    "  --brief                     : brief output format (no column headers)\n\n",
+    "  -? \#                       : '#' in place of <file> chooses default name for output files\n",
+    "  -p  --prefix <label>        : use <label> prefix for all default output file names\n\n",
+    "  -d  --progress              : display program progress messages\n",
+    "  -q  --quiet                 : quiet mode (credits & run option selections suppressed)\n",
+    "  -y  --hitsrc                : show origin of hits (Ts=tRNAscan 1.4, Eu=EufindtRNA, \n",
+    "                                  Bo=Both Ts and Eu, Inf=Infernal)\n\n",
+    
+    "Specify Alternate Cutoffs / Data Files:\n\n",
+    "  -X  --score <score>         : set cutoff score (in bits) for reporting tRNAs (default=20)\n",   
+    "  -g  --gencode <file>        : use alternate genetic codes specified in <file> for\n",
+    "                                  determining tRNA type\n",
+    "  -z  --pad <number>          : use <number> nucleotides padding when passing first-pass\n",
+    "                                  tRNA bounds predictions to CM analysis (default=8)\n",     
+    "  --len <length>              : set max length of tRNA intron+variable region for legacy search mode\n",
+    "                                  (default=116bp)\n",
+    
+    "Misc Options:\n\n",
+    "  -h  --help                  : print this help message\n",
+    "  -c  --conf <file>           : tRNAscan-SE configuration file (default: tRNAscan-SE.conf)\n",
+    "  -Q  --forceow               : do not prompt user before overwriting pre-existing\n",
+    "                                  result files  (for batch processing)\n\n",    
+    "  --match <EXPR>              : search only sequences with names matching <EXPR> string\n",
+    "                                  (<EXPR> may contain * or ? wildcard chars)\n", 
+    "  --search <EXPR>             : start search at sequence with name matching <EXPR> string\n",
+    "                                  and continue to end of input sequence file(s)\n", 
+
+    "Special Advanced Options (for testing & special purposes)\n\n",
+    "  -U                          : search for tRNAs with alternate models defined in configuration file\n\n",
+    "  -t  --tscan                 : search using tRNAscan only (defaults to strict params)\n",
+    "  --tmode <mode>              : explicitly set tRNAscan params, where <mode>=R or S\n",
+    "                                  (R=relaxed, S=strict tRNAscan v1.3 params)\n\n",
+    "  -v  --verbose <file>        : save verbose tRNAscan 1.3 output to <file>\n",
+    "  --nomerge                   : Keep redundant tRNAscan 1.3 hits (don't filter out multiple\n",
+    "                                  predictions per tRNA identification)\n",
+    "  -e  --eufind                : search using Eukaryotic tRNA finder (EufindtRNA) only\n",
+    "                                  (defaults to Normal seach parameters when run alone,\n",
+    "                                  or to Relaxed search params when run with Cove)\n",
+    "  --emode <mode>              : explicitly set EufindtRNA params, where <mode>=R, N, or S\n",
+    "                                  (relaxed, normal, or strict)\n\n",
+    "  --iscore <score>            : manually set \"intermediate\" cutoff score for EufindtRNA\n",    
+    "  -r  --fsres <file>          : save first-pass scan results from EufindtRNA, tRNAscan, or\n",
+    "                                  Infernal hmm in <file> in tabular results format\n",
+    "  --mid                       : fast scan mode - search using Infernal with mid-level strictness of hmm filter\n",
+    "  -F  --falsepos <file>       : save first-pass candidate tRNAs in <file> that were then\n",
+    "                                  found to be false positives by second-pass analysis\n",
+    "  --missed <file>             : save all seqs that do NOT have at least one\n",
+    "                                  tRNA prediction in them (aka \"missed\" seqs)\n",
+    "  --thread <number>           : number of threads used for running infernal (default is to use available threads)\n",
+    "\n\n";
+}
+
+sub set_options
+{    
+    # clear option vars
+    our $opt_conf= ''; 
+    our $opt_acedb=0; our $opt_quiet=0; our $opt_progress=0; our $opt_log="";
+    our $opt_euk=1; our $opt_bact=0; our $opt_arch=0; our $opt_organ=0; our $opt_general=0; our $opt_mito='';
+    our $opt_legacy=0; our $opt_inf=0; our $opt_isocm=''; our $opt_mt = '';
+    our $opt_metagenome=0; our $opt_numt=0;
+    our $opt_alt=0;
+    our $opt_cove=0; our $opt_mid=0; our $opt_max=0; our $opt_eufind=0; our $opt_tscan=0;
+    our $opt_ncintron=0; our $opt_frag='';
+    our $opt_breakdown=0; our $opt_nopseudo=0; our $opt_nomerge=0; our $opt_hitsrc=0;
+    our $opt_output=''; our $opt_struct=''; our $opt_stats=''; our $opt_isospecific=''; our $opt_bed=''; our $opt_fasta=''; our $opt_brief=0;
+    our $opt_detail=0;
+    our $opt_prefix=''; our $opt_match=''; our $opt_search='';
+    our $opt_gencode=''; our $opt_codons=0;
+    our $opt_tmode=''; our $opt_emode=''; our $opt_fsres=''; our $opt_filter=''; our $opt_falsepos=''; our $opt_missed='';
+    our $opt_score=1000; our $opt_iscore=1000; our $opt_len=-1; our $opt_pad=1000;
+    our $opt_help=0; our $opt_verbose=''; our $opt_forceow=0;
+    our $opt_w=''; our $opt_U=0; our $opt_Y=0; our $opt_thread=999;
+
+    Getopt::Long::Configure("bundling", "no_ignore_case", "no_auto_abbrev");
+    my $result = &GetOptions(
+                            # Configuration
+                            "conf|c=s","log|l=s",
+                            # Misc option switches
+                            "help|h",
+                            "quiet|q","hitsrc|y","breakdown|H",
+                            "Y",                          
+                            "progress|d","nopseudo|D","codons","forceow|Q","nomerge",
+                            # Search mode switches
+                            "euk|E", "bact|B", "arch|A", "organ|O", "general|G", "mito|M=s",
+                            "legacy|L", "inf|I", "isocm|S=s",
+#                            "metagenome|T", "numt|N",
+                            "alt|U", "mt=s",
+                            "eufind|e", "tscan|t", "cove|C", "mid", "max",
+                            # file name input specifiers
+                            "gencode|g=s",
+                            # file name output specifiers 
+                            "output|o=s", "stats|m=s", "struct|f=s", "bed|b=s", "fasta|a=s", "isospecific|s=s", "acedb", "brief",
+                            "fsres|r=s","verbose|v=s","w=s","falsepos|F=s","missed=s", "detail",
+                            #string parameters
+                            "prefix|p=s","match=s","search=s","emode=s","tmode=s",
+                            #numerical parameters
+                            "score|X=f","iscore=f","pad|z=i","len=i",
+                            "thread=i");
+
+    if ($opt_help)
+    {
+        print STDERR "\ntRNAscan-SE $version ($release_date)\n";
+        &display_credits;
+        &print_all_options;
+        exit(0);
+    }
+    if ($#ARGV < 0)
+    {
+        print STDERR "\ntRNAscan-SE $version ($release_date)\n";
+        print STDERR "\nFATAL: No sequence file(s) specified.\n";
+        &print_usage();
+        exit(1);
+    }
+    
+    # set location of temp and lib files
+    if ($ENV{TMPDIR})
+    {
+        $global_constants->set_temp_dir($ENV{TMPDIR}); 
+    } 
+    
+    # set defaults
+	if ($opt_conf ne "")
+	{
+		$global_constants->config_file($opt_conf);
+	}
+	$global_constants->read_configuration_file();
+    $cm->set_defaults(\%global_vars);
+    $eufind->set_defaults(\%global_vars);
+    $tscan->set_defaults(\%global_vars);
+    
+    # use input seq file name as prefix for default output file names 
+    my $fafile =  $ARGV[0];
+    $fafile =~ s/\.fa|\.seq$//;
+    
+    # use specified prefix for default output file names, take .seq or .fa extensions off 
+    if ($opt_prefix ne '')
+    {                        
+        $fafile = $opt_prefix;
+    }
+    $opts->fafile($fafile);
+    $opts->secondpass_int_result_file($global_constants->get("temp_dir")."/tscan$$"."_sp.out");
+    $opts->isotype_int_result_file($global_constants->get("temp_dir")."/tscan$$"."_iso.out");
+    $opts->truncated_int_result_file($global_constants->get("temp_dir")."/tscan$$"."_sp_trunc.out");
+    
+    if ($opt_detail)
+    {
+		$opts->detail(1);
+	}
+	
+    # Do NOT prompt before overwriting pre-existing output files;  good for use in batch-mode jobs
+    if ($opt_forceow != 0)
+    {                        
+        $opts->prompt_for_overwrite(0);             
+    }
+
+    # set name of result file
+    if ($opt_output ne '') 
+    {                        
+        $opts->results_to_stdout(0);
+        if ($opt_output eq "#")
+        {
+            $opts->out_file("$fafile.out");
+        }            
+        else
+        {
+            $opts->out_file($opt_output);
+        }
+        &check_output_file($opts->out_file(), $opts->prompt_for_overwrite());
+    }
+
+    # save results in ACeDB output
+    if ($opt_acedb != 0)
+    {                         
+        $opts->ace_output(1); 
+    }
+    
+    # use brief output (suppress column header)  
+    if ($opt_brief != 0)
+    {                         
+        $opts->brief_output(1);
+    }
+    
+    # use quite mode (suppress credits & user-selected options)
+    if ($opt_quiet != 0)
+    {
+        $opts->quiet_mode(1);
+        $log->quiet_mode(1);
+    }        
+    
+    # save source of tRNA hit
+    if ($opt_hitsrc != 0)
+    {                         
+        if ($opt_mito ne "" || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -y cannot be combined with -M.\n";
+        }
+        $opts->save_source(1);
+    }
+
+    # disable pseudogene filtering
+    if ($opt_nopseudo != 0)
+    {          
+        $cm->skip_pseudo_filter(1); 
+    } 
+
+    # translate anticodon to codon for output
+    if ($opt_codons != 0)
+    {          
+        $opts->output_codon(1);
+    } 
+
+    # search only sequences matching KEY name
+    # save original KEY expr
+    # turning KEY into regular expression notation
+    if ($opt_match ne '')
+    {  
+        $opts->seq_key($opt_match);
+        $opts->raw_seq_key($opts->seq_key());
+        my $key = $opts->seq_key();
+        $key =~ s/(\W)/\\$1/g;
+        $key =~ s/\\\*/\\S\*/g;
+        $key =~ s/\\\?/\\S/g;
+        $key =~ s/[\"\']//g;
+        $opts->seq_key($key);
+    }
+    # search all sequences after matching KEY 
+    # save original KEY expr
+    # turning KEY into regular expression notation
+    elsif ($opt_search ne '')
+    {
+        $opts->start_at_key(1);
+        $opts->seq_key($opt_search);
+        $opts->raw_seq_key($opts->seq_key());
+        my $key = $opts->seq_key();
+        $key =~ s/(\W)/\\$1/g;
+        $key =~ s/\\\*/\\S\*/g;
+        $key =~ s/\\\?/\\S/g;
+        $key =~ s/[\"\']//g;
+        $opts->seq_key($key);
+    }
+    else
+    {
+        $opts->seq_key('\S*');
+    }
+    
+    if ($opt_isocm ne "" and $opt_isocm ne "on" and $opt_isocm ne "off")
+    {
+        die "FATAL: Invalid value for --isocm. Please use on or off or leave out the option for default setting\n";
+	}
+	   
+    if ($opt_alt != 0)
+    {
+        if ($opt_bact || $opt_arch || $opt_general || $opt_mito ne "" || $opt_metagenome || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -U cannot be combined with other sequence type search option.\n";
+        }
+        if ($opt_isocm eq "on")
+        {
+            die "FATAL: Conflicting search options have been selected. -U cannot be combined with --isocm.\n";
+        }
+        
+        my $cms = $global_constants->get("alt_cm");
+        if (!defined $cms or scalar(keys %$cms) == 0)
+        {
+            die "FATAL: Alternate covariance models are not defined in the configuration file when using -U.\n";
+        }
+        
+        $opt_inf = 1;
+        $opt_eufind = 0;
+        $opt_tscan = 0;
+        $opts->search_mode("alt");
+        $opt_euk = 0;
+        $opt_mid = 1;
+        $cm->skip_pseudo_filter(1); 
+
+        $opts->no_isotype(1);
+        if ($opt_ncintron != 0)
+        {
+            die "FATAL: Conflicting search options have been selected. -U and --ncintron cannot be used simultaneously.\n";
+        }        
+        if ($opt_frag ne '')
+        {
+            die "FATAL: Conflicting search options have been selected. -U and --frag cannot be used simultaneously.\n";
+        }        
+
+        $opts->CM_mode("infernal");
+    }    
+    
+    if ($opt_bact != 0)
+    {
+        if ($opt_arch || $opt_general || $opt_mito ne "" || $opt_metagenome || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -B cannot be combined with other sequence type search option.\n";
+        }
+        
+        $eufind->eufind_intscore($global_constants->get_subvalue("eufind", "bact_intscore"));
+        $opts->search_mode("bacteria");
+        $opt_euk = 0;
+        $opts->CM_mode("infernal");
+        $opt_inf = 1;
+        
+        $opts->no_isotype(0);
+        if ($opt_isocm eq "off")
+        {
+            $opts->no_isotype(1);
+        }
+        
+        if ($opt_mt ne '')
+        {
+            die "FATAL: Conflicting search options have been selected. -B and --mt cannot be used simultaneously.\n";
+        }
+        if ($opt_ncintron != 0)
+        {
+            die "FATAL: Conflicting search options have been selected. -B and --ncintron cannot be used simultaneously.\n";
+        }        
+        if ($opt_frag ne '')
+        {
+            die "FATAL: Conflicting search options have been selected. -B and --frag cannot be used simultaneously.\n";
+        }        
+    }
+
+    if ($opt_arch != 0)
+    {
+        if ($opt_bact || $opt_general || $opt_mito ne "" || $opt_metagenome || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -A cannot be combined with other sequence type search option.\n";
+        }
+
+        $eufind->eufind_intscore($global_constants->get_subvalue("eufind", "arch_intscore")); 
+        $opts->search_mode("archaea");             
+        $opt_euk = 0;
+        $opts->CM_mode("infernal");
+        $opt_inf = 1;
+        
+        # check for non-canonical introns
+        $cm->CM_check_for_introns(1);           
+
+        # check for tRNA fragments of split tRNAs
+        if ($opt_frag ne '')
+        {
+            $cm->CM_check_for_split_halves(1);      
+            if ($opt_frag eq "#")
+            {
+                $opts->split_fragment_file("$fafile.frag");        
+            }
+            elsif (($opt_frag eq "\$") || ($opt_frag eq "-"))
+            {                                               
+                $opts->split_fragment_file("-");
+                
+                # sends output to stdout instead of tabular output
+                if ($opts->results_to_stdout())
+                {
+                    $opts->results_to_stdout(0);
+                    $opts->out_file("/dev/null");      
+                }  
+            }
+            else
+            {
+                $opts->split_fragment_file($opt_frag);
+            }
+            &check_output_file($opts->split_fragment_file(), $opts->prompt_for_overwrite());            
+        }
+
+        $opts->no_isotype(0);
+        if ($opt_isocm eq "off")
+        {
+            $opts->no_isotype(0);
+        }
+
+        if ($opt_mt ne '')
+        {
+            die "FATAL: Conflicting search options have been selected. -A and --mt cannot be used simultaneously.\n";                
+        }
+    }
+
+    # use original general cove model with all tRNAs from 3 domains
+    if ($opt_general != 0)
+    {                       
+        if ($opt_bact || $opt_arch || $opt_mito ne "" || $opt_metagenome || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -G cannot be combined with other sequence type search option.\n";
+        }
+        if ($opt_isocm eq "on")
+        {
+            die "FATAL: Conflicting search options have been selected. -G cannot be combined with --isocm.\n";
+        }
+
+        $opts->search_mode("general");               
+        $opt_euk = 0;
+        $opt_mid = 1;
+        $opts->CM_mode("infernal");
+        $opt_inf = 1;
+        $opts->no_isotype(1);
+
+        if ($opt_ncintron != 0)
+        {
+            die "FATAL: Conflicting search options have been selected. -G and --ncintron cannot be used simultaneously.\n";
+        }        
+        if ($opt_frag ne '')
+        {
+            die "FATAL: Conflicting search options have been selected. -G and --frag cannot be used simultaneously.\n";
+        }        
+    }
+
+    if ($opt_organ != 0)
+    {
+        $opt_eufind = 0;
+        $opt_tscan = 0;
+        
+        $opts->search_mode("organelle");              
+        $opt_euk = 0;
+        $opts->no_isotype(1);
+        $opt_inf = 1;
+        if ($opt_cove)
+        {
+            $opt_inf = 0;
+        }
+    
+        $cm->cm_cutoff($global_constants->get("organelle_cm_cutoff"));
+        
+        # disable psuedogene checking
+        $cm->skip_pseudo_filter(1);                
+
+        if ($opt_ncintron != 0)
+        {
+            die "FATAL: Conflicting search options have been selected. -O and --ncintron cannot be used simultaneously.\n";
+        }        
+        if ($opt_frag ne '')
+        {
+            die "FATAL: Conflicting search options have been selected. -O and --frag cannot be used simultaneously.\n";
+        }        
+        if ($opt_isocm eq "on")
+        {
+            die "FATAL: Conflicting search options have been selected. -O cannot be combined with --isocm.\n";
+        }
+    }
+
+    if ($opt_mito ne "")
+    {
+        if ($opt_bact || $opt_arch || $opt_general || $opt_metagenome || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -M cannot be combined with other sequence type search option.\n";
+        }
+        if ($opt_isocm eq "on")
+        {
+            die "FATAL: Conflicting search options have been selected. -M cannot be combined with --isocm.\n";
+        }
+
+        my $cms = $global_constants->get("mito_cm_".lc($opt_mito));
+        if (!defined $cms or scalar(keys %$cms) == 0)
+        {
+            die "FATAL: Mt-tRNA covariance models $opt_mito are not defined in the configuration file when using -M.\n";
+        }
+        
+        $opts->search_mode("mito");
+        $opts->mito_model(lc($opt_mito));
+        $opt_euk = 0;
+        $opt_mid = 1;
+        $opt_inf = 1;
+        $opts->no_isotype(1);
+        
+        if ($opt_eufind || $opt_tscan || $opt_cove)
+        {
+            die "FATAL: Conflicting search options have been selected. -M is only supported by using Infernal search.\n";
+        }        
+        if ($opt_ncintron != 0)
+        {
+            die "FATAL: Conflicting search options have been selected. -M and --ncintron cannot be used simultaneously.\n";
+        }        
+        if ($opt_frag ne '')
+        {
+            die "FATAL: Conflicting search options have been selected. -M and --frag cannot be used simultaneously.\n";
+        }        
+        
+        $opts->CM_mode("infernal");
+        
+        if ($opts->mito_model() eq "mammal" or $opts->mito_model() eq "vert")
+        {
+            $opts->gc_file($global_constants->get("gc_vert_mito")); 
+            $opts->alt_gcode(1);     
+        }
+        elsif ($opts->mito_model() eq "invert")
+        {
+            $opts->gc_file($global_constants->get("gc_invert_mito")); 
+            $opts->alt_gcode(1);     
+        }
+        elsif ($opts->mito_model() eq "fungi")
+        {
+            $opts->gc_file($global_constants->get("gc_yeast_mito")); 
+            $opts->alt_gcode(1);     
+        }
+    }
+
+    if ($opt_metagenome != 0)
+    {
+        if ($opt_bact || $opt_arch || $opt_general || $opt_mito ne "" || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -T cannot be combined with other sequence type search option.\n";
+        }
+        if ($opt_isocm eq "on")
+        {
+            die "FATAL: Conflicting search options have been selected. -T cannot be combined with --isocm.\n";
+        }
+
+        $opts->search_mode("metagenome");
+        $opt_euk = 0;
+        $opt_inf = 1;
+        $opts->no_isotype(1);
+
+        if ($opt_eufind || $opt_tscan || $opt_cove)
+        {
+            die "FATAL: Conflicting search options have been selected. -T is only supported by using Infernal search.\n";
+        }        
+
+        $opts->infernal_fp(1);
+        $opts->CM_mode("infernal");
+    }
+
+    if ($opt_numt != 0)
+    {
+        if ($opt_bact || $opt_arch || $opt_general || $opt_mito ne "" || $opt_metagenome)
+        {
+            die "FATAL: Conflicting search options have been selected. -N cannot be combined with other sequence type search option.\n";
+        }
+        if ($opt_isocm eq "on")
+        {
+            die "FATAL: Conflicting search options have been selected. -N cannot be combined with --isocm.\n";
+        }
+
+        $opts->search_mode("numt");
+        $opt_euk = 0;
+        $opt_inf = 1;
+        $opts->no_isotype(1);
+
+        if ($opt_eufind || $opt_tscan || $opt_cove)
+        {
+            die "FATAL: Conflicting search options have been selected. -N is only supported by using Infernal search.\n";
+        }        
+        if ($opt_ncintron != 0)
+        {
+            die "FATAL: Conflicting search options have been selected. -N and --ncintron cannot be used simultaneously.\n";
+        }        
+        if ($opt_frag ne '')
+        {
+            die "FATAL: Conflicting search options have been selected. -N and --frag cannot be used simultaneously.\n";
+        }        
+
+        $opts->infernal_fp(1);
+        $opts->CM_mode("infernal");
+    }
+
+    if ($opt_euk != 0)
+    {
+        $opts->search_mode("euk");
+        
+        $opts->no_isotype(0);
+        if ($opt_isocm eq "off")
+        {
+            $opts->no_isotype(1);
+            if ($opt_mt ne '')
+            {
+                die "FATAL: Conflicting search options have been selected. -S and --mt cannot be used simultaneously.\n";                
+            }
+        }
+        else
+        {
+            if ($opt_mt ne '')
+            {
+                my $cms = $global_constants->get("mito_cm_".lc($opt_mt));
+                if (!defined $cms or scalar(keys %$cms) == 0)
+                {
+                    die "FATAL: Mt-tRNA covariance models $opt_mt are not defined in the configuration file when using --mt.\n";
+                }
+                $opts->mito_model($opt_mt);
+            }
+        }
+        if ($opt_ncintron != 0)
+        {
+            die "FATAL: Conflicting search options have been selected. --ncintron cannot be used simultaneously with default search mode.\n";
+        }        
+        if ($opt_frag ne '')
+        {
+            die "FATAL: Conflicting search options have been selected. --frag cannot be used simultaneously with default search mode.\n";
+        }
+        $opt_inf = 1;
+        $opts->CM_mode("infernal");
+    }
+    
+    if ($opt_legacy)
+    {
+        if ($opt_max or $opt_mid)
+        {
+            die "FATAL: Conflicting search options have been selected. -L, --fast, and --max cannot be used simultaneously.\n";
+        }
+        if ($opt_arch && ($opt_ncintron != 0 || $opt_frag ne ''))
+        {
+            die "FATAL: Conflicting search options have been selected. --ncintron and --frag are not supported with legacy mode.\n";
+        }
+        if ($opt_mito ne "" || $opt_metagenome || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -L cannot be combined with -M.\n";
+        }
+        if ($opt_isocm eq "on")
+        {
+            die "FATAL: Conflicting search options have been selected. -L cannot be combined with --isocm.\n";
+        }
+        
+        $opt_inf = 0;
+        $opts->no_isotype(1);
+        $opts->infernal_fp(0);
+        $opts->CM_mode("cove");
+        if ($opt_arch)
+        {
+			$cm->CM_check_for_introns(0); 
+		}		
+    }
+
+    # do Cove scan only
+    if ($opt_cove != 0)
+    {                           
+        if ($opt_eufind || $opt_tscan || $opt_max || $opt_mid)
+        {
+            die "FATAL: Conflicting search options have been selected. -t, -e, --fast, --max, and -C cannot be used simultaneously.\n";
+        }
+        if ($opt_arch && ($opt_ncintron != 0 || $opt_frag ne ''))
+        {
+            die "FATAL: Conflicting search options have been selected. --ncintron and --frag are not supported with COVE only mode.\n";
+        }
+        if ($opt_mito ne "" || $opt_metagenome || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -C cannot be combined with -M.\n";
+        }
+        if ($opt_isocm eq "on")
+        {
+            die "FATAL: Conflicting search options have been selected. -C cannot be combined with --isocm.\n";
+        }
+
+        $opt_inf = 0;
+        $opts->no_isotype(1);
+        $opts->CM_mode("cove");
+        if ($opt_euk)
+        {
+            $opts->infernal_fp(0);
+        }
+        if ($opt_arch)
+        {
+			$cm->CM_check_for_introns(0); 
+		}		
+    }
+    
+    # don't use tRNAscan unless also specified by -T option
+    # don't use eufindtRNA unless also specified by -E option
+    if ($opt_cove)
+    {
+        $opts->tscan_mode(0);
+        $opts->eufind_mode(0);
+    }
+    
+    # do tRNAscan only
+    if ($opt_tscan != 0)
+    {
+        # if only using tRNAscan, use strict tRNAscan 1.3 params
+        # since Cove won't eliminate high false pos rate with default params
+        $opts->tscan_mode(1);
+        $tscan->tscan_params($global_constants->get_subvalue("tscan", "strict_param"));            
+        $opts->strict_params(1);
+        $opt_inf = 0;
+        $opts->no_isotype(1);
+
+        # if -C isn't also specified, turn off Cove filtering
+        # if -i isn't also specified, turn off infernal filtering
+        if (($opt_cove == 0) || ($opt_max == 0))
+        {
+            $opts->CM_mode("");
+        }
+
+        # if -E isn't also specified, turn off eufindtRNA
+        if ($opt_eufind == 0)
+        { 
+            $opts->eufind_mode(0);
+        }
+        $opts->secondpass_int_result_file("");
+        $opts->isotype_int_result_file("");
+        $opts->truncated_int_result_file("");
+    }
+
+     # set tRNAscan search params
+    if ($opt_tmode ne '')
+    {                        
+        if (!$opt_tscan and !$opt_legacy)
+        {
+            die "FATAL: Conflicting search options have been selected. --tmode can only be used with -t or -L.\n";
+        }
+
+        $opt_tmode = uc($opt_tmode);
+        # use relaxed tRNAscan params
+        if ($opt_tmode eq "R")
+        {
+            $tscan->tscan_params($global_constants->get_subvalue("tscan", "relaxed_param"));            
+            $opts->strict_params(0);
+        }
+        # use strict tRNAscan v1.3 params  
+        elsif ($opt_tmode eq "S")
+        {
+            $tscan->tscan_params($global_constants->get_subvalue("tscan", "strict_param"));
+            $opts->strict_params(1);
+        }
+        # use alternate tRNAscan params
+        elsif ($opt_tmode eq "A")
+        {
+            $tscan->tscan_params($global_constants->get_subvalue("tscan", "alt_param"));             
+            $opts->strict_params(0);
+        }                           
+        else
+        {
+            print STDERR "\nWARNING: tRNAscan parameter specified",
+            " with -t option not recognized.\n",
+            "         Defaulting to strict tRNAscan params\n\n";
+            $tscan->tscan_params($global_constants->get_subvalue("tscan", "strict_param"));  
+            $opts->strict_params(1);
+        }
+    }    
+
+    # don't merge redundant tRNAscan hits option only for diagnostic purposes
+    if ($opt_nomerge != 0)
+    {                        
+        $tscan->keep_tscan_repeats(1);
+    }
+    
+    # use eufindtRNA 
+    if ($opt_eufind != 0)
+    {
+        $opts->eufind_mode(1);
+        
+        # if -C isn't also specified, turn off Cove filtering
+        # if -i isn't also specified, turn off infernal filtering
+        if (($opt_cove == 0) || ($opt_max == 0))
+        {
+            $opts->CM_mode("");
+        }
+        $opt_inf = 0;
+        $opts->no_isotype(1);
+        
+        if (!$opts->cove_mode() && !$opts->infernal_mode())
+        {
+            # use more strict default params if no second-pass filtering
+            $eufind->eufind_params("");             
+        }
+        else
+        {
+            # use more relaxed params if using second-pass filtering
+            $eufind->eufind_params($global_constants->get_subvalue("eufind", "relaxed_param"));  
+        }
+        
+        # turn off tRNAscan if not specified on command line
+        if ($opt_tscan == 0)
+        {                       
+            $opts->tscan_mode(0);                   
+        }
+        $opts->secondpass_int_result_file("");
+        $opts->isotype_int_result_file("");
+        $opts->truncated_int_result_file("");
+    }
+
+    # set eufindtRNA search params
+    if ($opt_emode ne '')
+    {
+        if (!$opt_eufind and !$opt_legacy)
+        {
+            die "FATAL: Conflicting search options have been selected. --emode can only be used with -e or -L.\n";
+        }
+
+        $opt_emode = uc($opt_emode);
+        # use relaxed params that does not look for poly T
+        if ($opt_emode eq "R")
+        {
+            $eufind->eufind_params($global_constants->get_subvalue("eufind", "relaxed_param"));           
+        }
+        # use default params and penalizes for no poly T 
+        elsif ($opt_emode eq "N")
+        {
+            $eufind->eufind_params("");             
+        }
+        # use strict params and requires poly T
+        # default intermediate cutoff for original algorithm
+        elsif ($opt_emode eq "S")
+        {
+            $eufind->eufind_params($global_constants->get_subvalue("eufind", "strict_param"));           
+            $eufind->eufind_intscore($global_constants->get_subvalue("eufind", "orig_intscore"));       
+        }
+        else
+        {
+            print STDERR "\nWARNING: EufindtRNA parameter specified",
+            " with -e option not recognized.\n",
+            "         Defaulting to relaxed EufindtRNA params\n\n";
+            $eufind->eufind_params($global_constants->get_subvalue("eufind", "relaxed_param"));  
+        }
+    }
+    
+    if ($opt_inf)
+    {
+        if ($opt_legacy)
+        {
+            die "FATAL: Conflicting search options have been selected. -L and -I cannot be used simultaneously.\n";
+        }
+        if ($opt_eufind || $opt_tscan || $opt_cove)
+        {
+            die "FATAL: Conflicting search options have been selected. -I, -t, -e, and -C cannot be used simultaneously.\n";
+        }
+        
+        $opts->tscan_mode(0);
+        $opts->eufind_mode(0);
+        if ($opt_euk || $opt_bact || $opt_arch)
+        {
+            $opts->infernal_fp(1);
+        }
+        $opts->CM_mode("infernal");
+        $opt_legacy = 0;
+    }
+    
+    # do max scan 
+    if ($opt_max != 0)
+    {                       
+        if ($opt_eufind || $opt_tscan || $opt_cove || $opt_legacy || $opt_mid)
+        {
+            die "FATAL: Conflicting search options have been selected. --max, -t, -e, -C, and -L cannot be used simultaneously.\n";
+        }
+
+        $opts->tscan_mode(0);
+        $opts->eufind_mode(0);
+        if ($opt_euk || $opt_bact || $opt_arch)
+        {
+            $opts->infernal_fp(0);
+        }
+    }
+    
+    # set hmm filter flag for infernal
+    if ($opt_mid)
+    {    
+        if ($opt_eufind || $opt_tscan || $opt_cove || $opt_legacy || $opt_max)
+        {
+            die "FATAL: Conflicting search options have been selected. --fast, -t, -e, -C, and -L cannot be used simultaneously.\n";
+        }
+        
+        if ($opt_euk || $opt_bact || $opt_arch)
+        {
+            $opts->infernal_fp(0);
+        }
+        $opts->hmm_filter(1); 
+    }
+    
+    if ($opt_isospecific ne "")
+    {
+        if ($opts->no_isotype())
+        {
+            die "FATAL: Conflicting search options have been selected. -s cannot be used when isotype model scan is disabled.\n";
+        }
+        if ($opt_mito ne "" || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -s cannot be combined with -M.\n";
+        }
+        
+        if ($opt_isospecific eq "#")
+        {
+            $opts->isotype_specific_file("$fafile.iso");        
+        }
+        elsif (($opt_isospecific eq "\$") || ($opt_isospecific eq "-"))
+        {                                               
+            $opts->isotype_specific_file("-");
+            
+            # sends output to stdout instead of tabular output
+            if ($opts->results_to_stdout())
+            {
+                $opts->results_to_stdout(0);
+                $opts->out_file("/dev/null");      
+            }  
+        }
+        else
+        {
+            $opts->isotype_specific_file($opt_isospecific);
+        }
+        &check_output_file($opts->isotype_specific_file(), $opts->prompt_for_overwrite());            
+    }
+
+    if ($opts->no_isotype())
+    {
+        $opts->isotype_specific_file("");
+    }
+    
+    if ($opt_bed ne "")
+    {
+        if ($opt_bed eq "#")
+        {
+            $opts->bed_file("$fafile.bed");        
+        }
+        elsif (($opt_bed eq "\$") || ($opt_bed eq "-"))
+        {                                               
+            $opts->bed_file("-");
+            
+            # sends output to stdout instead of tabular output
+            if ($opts->results_to_stdout())
+            {
+                $opts->results_to_stdout(0);
+                $opts->out_file("/dev/null");      
+            }  
+        }
+        else
+        {
+            $opts->bed_file($opt_bed);
+        }
+        &check_output_file($opts->bed_file(), $opts->prompt_for_overwrite());            
+    }
+    
+    if ($opt_fasta ne "")
+    {
+        if ($opt_fasta eq "#")
+        {
+            $opts->output_fasta_file("$fafile.fa");        
+        }
+        elsif (($opt_fasta eq "\$") || ($opt_fasta eq "-"))
+        {                                               
+            $opts->output_fasta_file("-");
+            
+            # sends output to stdout instead of tabular output
+            if ($opts->results_to_stdout())
+            {
+                $opts->results_to_stdout(0);
+                $opts->out_file("/dev/null");      
+            }  
+        }
+        else
+        {
+            $opts->output_fasta_file($opt_fasta);
+        }
+        &check_output_file($opts->output_fasta_file(), $opts->prompt_for_overwrite());            
+    }
+
+    if ($opt_iscore != 1000)
+    {
+        if (!$opt_eufind and !$opt_legacy)
+        {
+            die "FATAL: Conflicting search options have been selected. --iscore can only be used with -e or -L.\n";
+        }
+        $eufind->eufind_intscore($opt_iscore);
+    }
+
+    # pad both ends of first-pass hits with this
+    # many extra bases before passing to Cove      
+    if ($opt_pad != 1000)
+    { 
+        $opts->padding($opt_pad);                
+    }
+
+    # use alternate genetic code table
+    if ($opt_gencode ne '')
+    {
+        $opts->gc_file($opt_gencode); 
+        $opts->alt_gcode(1);     
+    }
+    
+    # get HMM score for tRNA hits
+    if ($opt_breakdown != 0)
+    {
+        if ($opt_mito ne "" || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -H cannot be combined with -M.\n";
+        }
+        $cm->get_hmm_score(1);
+    }
+    
+    # save stats summary file 
+    if ($opt_stats ne '')
+    {
+        $opts->save_stats(1);
+        if ($opt_stats eq "#")
+        {
+            $opts->stats_file("$fafile.stats");
+        }            
+        else
+        {
+            $opts->stats_file($opt_stats);
+        }
+        &check_output_file($opts->stats_file(), $opts->prompt_for_overwrite());
+    }
+
+    # save coves secondary structures for tRNA's whose acodons it couldn't call
+    if ($opt_w ne '')
+    {                             
+        $opts->save_odd_struct(1); 
+        if ($opt_w eq "#")
+        {
+            $opts->odd_struct_file("$fafile.oddstruct");
+        }
+        else
+        {
+            $opts->odd_struct_file($opt_w);
+        }
+        &check_output_file($opts->odd_struct_file(), $opts->prompt_for_overwrite());
+    }
+    
+    # save all coves secondary structures
+    if ($opt_struct ne '')
+    {
+        $opts->save_all_struct(1);
+        if ($opt_struct eq "#")
+        {
+            $opts->all_struct_file("$fafile.ss");        
+        }
+         # sends structure output to stdout instead of tabular output
+        elsif (($opt_struct eq "\$") || ($opt_struct eq "-"))
+        {             
+            $opts->all_struct_file("-");
+            if ($opts->results_to_stdout())
+            {
+                $opts->results_to_stdout(0);
+                $opts->out_file("/dev/null");      
+            }  
+        }
+        else
+        {
+            $opts->all_struct_file($opt_struct);
+        }
+        &check_output_file($opts->all_struct_file(), $opts->prompt_for_overwrite());
+    }
+  
+    # save only seqs without a tRNA hit
+    if ($opt_missed ne '')
+    {
+        $opts->save_missed(1);
+        if ($opt_missed eq "#")
+        {
+            $opts->missed_seq_file("$fafile.missed");        
+        }
+        else
+        {
+            $opts->missed_seq_file($opt_missed);
+        }
+        &check_output_file($opts->missed_seq_file(),$opts->prompt_for_overwrite());
+    }
+
+    # outputs PID number in file for tRNAscan-SE web server program
+    if ($opt_Y != 0)
+    { 
+        &check_output_file("$fafile.pid", $opts->prompt_for_overwrite());
+        &open_for_write(\*TESTF, "$fafile.pid");
+        print TESTF "PID=$$\n";
+        close(TESTF);
+    }
+
+    # save verbose tRNAscan output
+    if ($opt_verbose ne '')
+    {
+        $opts->save_verbose(1);
+        my $tmp_verb = &tempname($global_constants->get("temp_dir"),".vb");  # get temp output file name
+        &check_output_file($tmp_verb, $opts->prompt_for_overwrite());
+        $tscan->tscan_params($tscan->tscan_params() . "-v $tmp_verb");
+        if ($opt_verbose eq "#")
+        {
+            $opts->verb_file("$fafile.verb");
+        }
+        else
+        {
+            $opts->verb_file($opt_verbose);
+        }
+        &check_output_file($opts->verb_file(),$opts->prompt_for_overwrite());
+    }
+    
+    # use previous results output file
+    if ($opt_filter ne '')
+    {                        
+        $opts->tscan_mode(0);
+        $opts->eufind_mode(0);
+        $opts->use_prev_ts_run(1);    
+        $opts->firstpass_result_file($opt_filter); 
+        if (!(-e $opts->firstpass_result_file())) {
+            die "FATAL: Can't find formatted tRNA output file ",
+                $opts->firstpass_result_file()."\n\n"; 
+        }  
+    }
+    # create named file for first pass results
+    elsif ($opt_fsres ne '')
+    { 
+        $opts->save_firstpass_res(1);
+        if ($opt_fsres eq "#")
+        {
+            $opts->firstpass_result_file("$fafile.fpass.out");
+        }
+        else
+        {
+            $opts->firstpass_result_file($opt_fsres);
+        }
+        &check_output_file($opts->firstpass_result_file(), $opts->prompt_for_overwrite());
+        $fp_result_file->init_fp_result_file($opts->firstpass_result_file());
+    }
+    # create temp file for firstpass output
+    else
+    {                                          
+        $opts->firstpass_result_file(&tempname($global_constants->get("temp_dir"), ".fpass"));
+        &check_output_file($opts->firstpass_result_file(), $opts->prompt_for_overwrite()); 
+        $fp_result_file->init_fp_result_file($opts->firstpass_result_file());
+    }
+    $opts->firstpass_flanking_file($global_constants->get("temp_dir")."/tscan$$"."_fp_flanking.out");
+    $fp_result_file->flanking_file($opts->firstpass_flanking_file());
+    
+    # save false positive tRNAs from first-pass scans that Cove bonked
+    # save source of tRNA hit (-y option) if not using infernal
+    if ($opt_falsepos ne '')
+    {                      
+        if ($opt_mito ne "" || $opt_numt)
+        {
+            die "FATAL: Conflicting search options have been selected. -F cannot be combined with -M.\n";
+        }
+        $opts->save_falsepos(1);
+        if (!$opts->infernal_mode())
+        {
+            $opts->save_source(1);
+        }
+        if ($opt_falsepos eq "#")
+        {
+            $opts->falsepos_file("$fafile.fpos");
+        }
+        else
+        {
+            $opts->falsepos_file($opt_falsepos);
+        }
+        &check_output_file($opts->falsepos_file(), $opts->prompt_for_overwrite());
+    }
+
+    # set MAX intron+variable loop region size used in EufindtRNA & Cove
+    if ($opt_len > 0)
+    {             
+        $opts->max_int_len($opt_len);               
+     
+        # look for long tRNAs if needed
+        if ($opts->use_prev_ts_run() || $opts->eufind_mode())
+        {
+            $opts->find_long_tRNAs(1);              
+        }
+        else
+        {
+            $cm->max_cove_tRNA_length($opts->max_int_len() + $cm->min_tRNA_no_intron());
+        }
+    }
+    
+    if ($opt_progress != 0)
+    {
+        $log->open_file("-") || die "FATAL: Unable to open standard out to display program progress\n\n";
+        $opts->display_progress(1);
+    }
+    elsif ($opt_log ne "")
+    {
+        if ($opt_log eq "#")
+        {
+            $opts->log_file("$fafile.log");
+        }
+        else
+        {
+            $opts->log_file($opt_log);
+        }
+        &check_output_file($opts->log_file(), $opts->prompt_for_overwrite());
+        
+        $log->file_name($opts->log_file());
+        $log->initialize_log("tRNAscan-SE", "", "");
+        
+        $opts->save_progress(1);
+    }
+    else
+    {
+        $log->open_file("/dev/null") || die "FATAL: Unable to open /dev/null to record program progress\n\n";
+    }
+    
+    # use different Cove-score cutoff for reporting "real" tRNAs
+    # dummy opt_X val is 10,000 to avoid overlap with a real value a user might specify
+    if ($opt_score != 1000)
+    {                       
+        $cm->cm_cutoff($opt_score);
+        if ($opt_score < $cm->infernal_fp_cutoff())
+        {
+			$cm->infernal_fp_cutoff($opt_score);
+		}		
+    }
+    
+    if ($opt_thread != 999)
+    {
+		if ($opt_thread < 1)
+        {
+            die "FATAL: Number of threads for running Infernal must be at least 1.\n";
+		}
+        if ($opt_eufind || $opt_tscan || $opt_cove || $opt_legacy)
+        {
+            die "FATAL: Conflicting search options have been selected. --thread, -t, -e, -C, and -L cannot be used simultaneously.\n";
+        }
+		$cm->infernal_thread($opt_thread);
+	}
+    
+    # only one seq file on command line
+    if ($#ARGV == 0)
+    {                              
+        $opts->multiple_files(0);
+        $opts->fasta_file($ARGV[0]);
+    }
+    else
+    {    
+        $opts->multiple_files(1);
+        my $tmp_multiseq_file = &tempname($global_constants->get("temp_dir"), ".mseq");       
+        &check_output_file($tmp_multiseq_file, $opts->prompt_for_overwrite());
+        foreach my $filename (@ARGV)
+        {
+            system("cat $filename >> $tmp_multiseq_file");
+        }
+        $opts->fasta_file($tmp_multiseq_file);    
+    }
+
+    if ($opts->cove_mode())
+    {
+        $opts->second_pass_label("Cove");
+    }
+    if ($opts->infernal_mode())
+    {
+        $opts->second_pass_label("Infernal");
+    }
+    
+    $cm->CM_mode($opts->CM_mode());
+}
