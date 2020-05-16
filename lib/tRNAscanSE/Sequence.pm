@@ -335,7 +335,10 @@ sub read_fasta
             ## Remove long runs of N's from consideration by pre-scanners
             ## By doing this, pre-scanner false-pos rate is normal, even
             ## when scanning unfinished genomes with long N insert "placeholders"
-            $self->{sequence} =~ s/NNNNNNNNNN/CCCCCCCCCC/g; 
+            if ($opts->tscan_mode() or $opts->eufind_mode())
+            {
+                $self->{sequence} =~ s/NNNNNNNNNN/CCCCCCCCCC/g;
+            }
 
             return 1;
         }
@@ -524,6 +527,7 @@ sub read_fasta_subseq_slow
 sub read_more_fasta
 {    
     my $self = shift;
+    my $opts = shift;
     my $fh = $self->{FILE_H};
     
     my ($seqlen, $filepos);
@@ -579,7 +583,10 @@ sub read_more_fasta
     ## Remove long runs of N's from consideration by pre-scanners
     ## By doing this, pre-scanner false-pos rate is normal, even
     ## when scanning unfinished genomes with long N insert "placeholders"
-    $self->{sequence} =~ s/NNNNNNNNNN/CCCCCCCCCC/g; 
+    if ($opts->tscan_mode() or $opts->eufind_mode())
+    {
+        $self->{sequence} =~ s/NNNNNNNNNN/CCCCCCCCCC/g;
+    }
     
     return 1;
 }
@@ -656,7 +663,7 @@ sub get_tRNA_sequence
         $self->seekpos(0);
         if (!$self->read_fasta_subseq_slow($opts, $trna->seqname(), $src_seqid, $fwd_start, $query_len))
         {
-            $log->warning("Could not find ".$trna->seqname()." in ".$opts->fastafile());
+            $log->warning("Could not find ".$trna->seqname()." in ".$opts->fasta_file());
             $log->broadcast("Skipping to next tRNA hit...");
             return 0;
         }

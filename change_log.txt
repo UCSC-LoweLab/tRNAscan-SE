@@ -1,0 +1,23 @@
+v2.0.5
+- Fixed code for missing tRNA predictions that only occurred when predictions were 
+located within 200bp of long stretch of Ns used to connect contigs into scaffolds 
+of incomplete genome assemblies
+
+v2.0.4
+- Bug fixing for incorrect position of truncated tRNA-fMet in bacterial mode
+- Changed isotype and anticodon to Undet/NNN when the prediction matched with   
+the tRNA-SeC convariance model but the predicted anticodon was not TCA
+- Added code to allow the use of --max option for mitochondrial search mode
+
+v2.0.3
+- Added code to adjust anticodon positions for bacterial tRNA-fMet and archaeal 
+tRNA-His when the sequences were misaligned with the models
+
+v2.0.2
+- Updated code to make thread option consistent with Infernal
+
+v2.0.1
+- Updated EukHighConfidenceFilter to flag tRNA-Sup as unexpected anticodon
+
+v2.0
+- Major update of tRNAscan-SE
