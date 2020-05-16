@@ -79,7 +79,7 @@ sub initialize
     $self->{cmsearch_bin} = "cmsearch";
     $self->{cmscan_bin} = "cmscan";
 
-    $self->{infernal_thread} = 0;
+    $self->{infernal_thread} = -1;
     
     $self->{tab_results} = +[];
 }
@@ -1242,6 +1242,14 @@ sub fix_fMet
                 {
                     $trna->end($trna->end() + 1);
                 }
+                my @ar_ac_pos = $trna->ar_ac_pos();
+                if (scalar(@ar_ac_pos) > 0)
+                {
+					$ar_ac_pos[0]->{rel_start} += 1;
+                    $ar_ac_pos[0]->{rel_end} += 1;
+                    $trna->ar_ac_pos(@ar_ac_pos);
+				}
+				
                 $rescore = 1;
             }
             elsif (substr($trna->ss(), 0, 4) eq ".>.>" and substr($trna->seq(), 0, 2) eq "CG")
@@ -1266,6 +1274,13 @@ sub fix_fMet
                     else
                     {
                         $trna->end($trna->end() - 1);
+                    }
+                    my @ar_ac_pos = $trna->ar_ac_pos();
+                    if (scalar(@ar_ac_pos) > 0)
+                    {
+                        $ar_ac_pos[0]->{rel_start} -= 1;
+                        $ar_ac_pos[0]->{rel_end} -= 1;
+                        $trna->ar_ac_pos(@ar_ac_pos);
                     }
                     $rescore = 1;
 				}				
@@ -1310,6 +1325,16 @@ sub fix_His
 			$trna->ss(substr($trna->ss(), 1, 3).">".substr($trna->ss(), 5, length($trna->ss())-11)."<".substr($trna->ss(), length($trna->ss())-5, 3).".");
             $trna->start($trna->start() + 1);
             $trna->end($trna->end() - 1);
+            my @ar_ac_pos = $trna->ar_ac_pos();
+            if (scalar(@ar_ac_pos) > 0)
+            {
+                for (my $i = 0; $i < scalar(@ar_ac_pos); $i++)
+                {
+                    $ar_ac_pos[$i]->{rel_start} -= 1;
+                    $ar_ac_pos[$i]->{rel_end} -= 1;
+                }
+                $trna->ar_ac_pos(@ar_ac_pos);
+            }
             $self->rescore_tRNA($global_vars, $trna, $trna);
 		}
 	}
@@ -2281,7 +2306,7 @@ sub exec_cmscan
     {
         $cm_options = "-g --nohmm --notrunc";
     }
-    if ($self->{infernal_thread} != 0)
+    if ($self->{infernal_thread} != -1)
     {
 		$cm_options .= " --cpu ".$self->{infernal_thread};
 	}
@@ -2341,7 +2366,7 @@ sub exec_cmsearch
 			$cm_options .= " -T ".$score_cutoff;
 		}
 	}
-    if ($self->{infernal_thread} != 0)
+    if ($self->{infernal_thread} != -1)
     {
 		$cm_options .= " --cpu ".$self->{infernal_thread};
 	}

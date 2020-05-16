@@ -248,7 +248,7 @@ sub bsearch_id
         {
             if ($self->{ar_tRNAs}->[$i]->gtrnadb_id() lt $x)
             {
-                $l = $i+1;
+               $l = $i+1;
             }
             elsif ($self->{ar_tRNAs}->[$i]->gtrnadb_id() gt $x)
             {
@@ -341,17 +341,7 @@ sub sort_by_tRNAscanid
 
 sub sort_by_gtrnadb_id
 {
-	my $a_code = 0;
-	my $b_code = 0;
-	if ($a->gtrnadb_id() !~ /^tRNA/)
-	{
-		$a_code = 1;
-	}
-	if ($b->gtrnadb_id() !~ /^tRNA/)
-	{
-		$b_code = 1;
-	}	
-    return ($a_code <=> $b_code || $a->gtrnadb_id() cmp $b->gtrnadb_id()); 
+    return ($a->gtrnadb_id() cmp $b->gtrnadb_id()); 
 }
 
 sub sort_by_extdb_id

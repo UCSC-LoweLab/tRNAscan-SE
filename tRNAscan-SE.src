@@ -4,9 +4,9 @@
 # tRNAscan-SE: a program for improved detection of transfer RNA
 #              genes in genomic sequence
 #
-# Version 2.0.1
+# Version 2.0.3
 #
-# Copyright (C) 2017 Patricia Chan and Todd Lowe 
+# Copyright (C) 2019 Patricia Chan and Todd Lowe 
 #
 # School of Engineering, University of California, Santa Cruz
 # lowe@soe.ucsc.edu
@@ -39,8 +39,8 @@ use tRNAscanSE::IntResultFile;
 use tRNAscanSE::MultiResultFile;
 use tRNAscanSE::SS;
 
-our $version = "2.0.1"; 
-our $release_date = "March 2018";
+our $version = "2.0.3"; 
+our $release_date = "April 2019";
 our $program_id = "tRNAscan-SE-".$version;
 
 # modified by 'make'
@@ -621,7 +621,7 @@ sub error_handler
 
 sub display_credits
 {
-    print STDERR "Copyright (C) 2017 Patricia Chan and Todd Lowe\n",
+    print STDERR "Copyright (C) 2019 Patricia Chan and Todd Lowe\n",
                  "                   University of California Santa Cruz\n",
                  "Freely distributed under the GNU General Public License (GPLv3)\n\n";
 }
@@ -1881,9 +1881,9 @@ sub set_options
     
     if ($opt_thread != 999)
     {
-		if ($opt_thread < 1)
+		if ($opt_thread < 0)
         {
-            die "FATAL: Number of threads for running Infernal must be at least 1.\n";
+            die "FATAL: Number of threads for running Infernal must be at least 0.\n";
 		}
         if ($opt_eufind || $opt_tscan || $opt_cove || $opt_legacy)
         {
