@@ -32,7 +32,7 @@ pol III tRNA promoters (our implementation referred to as EufindtRNA),
 which is still available as a backward compatible option. Predicted
 tRNA genes will then be assessed using a set of isotype-specific covariance
 models. Comparative analysis among these models enables better annotation,
-particularly of atypical tRNAs, some of which may produce “recoding”
+particularly of atypical tRNAs, some of which may produce √írecoding√ì
 events due to mutations in the anticodon. The new tRNAscan-SE also enables
 better recognition of tRNA-derived SINEs that are abundant in many
 eukaryotic genomes by using a post quality filter.
