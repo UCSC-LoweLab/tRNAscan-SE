@@ -4,13 +4,13 @@
 # tRNAscan-SE: a program for improved detection of transfer RNA
 #              genes in genomic sequence
 #
-# Version 2.0.5
+# Version 2.0.6
 #
-# Copyright (C) 2019 Patricia Chan and Todd Lowe 
+# Copyright (C) 2020 Patricia Chan and Todd Lowe 
 #
 # School of Engineering, University of California, Santa Cruz
-# lowe@soe.ucsc.edu
-# http://lowelab.ucsc.edu/
+# trna@soe.ucsc.edu
+# http://trna.ucsc.edu/
 # --------------------------------------------------------------------
 #
 # Usage:
@@ -39,8 +39,8 @@ use tRNAscanSE::IntResultFile;
 use tRNAscanSE::MultiResultFile;
 use tRNAscanSE::SS;
 
-our $version = "2.0.5"; 
-our $release_date = "October 2019";
+our $version = "2.0.6"; 
+our $release_date = "May 2020";
 our $program_id = "tRNAscan-SE-".$version;
 
 # modified by 'make'
@@ -1531,10 +1531,10 @@ sub set_options
         {
             $opts->infernal_fp(0);
         }
-	elsif ($opt_mito)
-	{
-	    $opt_mid = 0;
-	}
+		elsif ($opt_mito)
+		{
+			$opt_mid = 0;
+		}
     }
     
     # set hmm filter flag for infernal
@@ -1879,8 +1879,8 @@ sub set_options
         $cm->cm_cutoff($opt_score);
         if ($opt_score < $cm->infernal_fp_cutoff())
         {
-		$cm->infernal_fp_cutoff($opt_score);
-	}
+			$cm->infernal_fp_cutoff($opt_score);
+		}
     }
     
     if ($opt_thread != 999)

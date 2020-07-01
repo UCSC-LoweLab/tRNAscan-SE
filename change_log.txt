@@ -1,3 +1,11 @@
+v2.0.6
+- Fixed anticodon coordinates when archaeal non-canonical intron locates next 
+to anticodon
+- Fixed tRNA coordinates when prediction is located at the edge of truncated 
+input sequence
+- Update archaeal isotype-specific covariance models with more optimal scoring 
+for consistent isotype
+
 v2.0.5
 - Fixed code for missing tRNA predictions that only occurred when predictions were 
 located within 200bp of long stretch of Ns used to connect contigs into scaffolds 

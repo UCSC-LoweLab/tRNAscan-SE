@@ -3,12 +3,9 @@
 #
 # --------------------------------------------------------------
 # This module is part of the tRNAscan-SE program.
-# Copyright (C) 2017 Patricia Chan and Todd Lowe 
+# Copyright (C) 2020 Patricia Chan and Todd Lowe 
 # --------------------------------------------------------------
 #
-# Perl code for reading FASTA-formatted sequence files
-# SRE, Sat Feb 19 19:10:43 1994
-
 # These subroutines read a FASTA formatted file one sequence at a time.
 # Open(filename, open_mode) opens a file for reading or wrting.
 # Close() closes it when you're done.
@@ -21,7 +18,6 @@
 #       $seq_length      = length of sequence
 #       $sequence        = sequence, gaps and newlines removed
 #
-# Modified by TMJL  11/95 for use in tRNAscan-SE
 
 package tRNAscanSE::Sequence;
 
@@ -416,7 +412,14 @@ sub read_fasta_subseq
         $seqlen += length($self->{saved_line});
     }                        
     
-    $self->{sequence} = substr($tempseq, 0, $subseq_len);
+    if ($seqlen < $subseq_len)
+    {
+        $self->{sequence} = substr($tempseq, 0, $seqlen);
+    }
+    else
+    {
+        $self->{sequence} = substr($tempseq, 0, $subseq_len);
+    }
 
     $self->{sequence} = uc($self->{sequence});
     $self->{sequence} =~ s/U/T/g;
@@ -497,7 +500,14 @@ sub read_fasta_subseq_slow
                 $seqlen += length($self->{saved_line});
             }                        
 
-            $self->{sequence} = substr($tempseq, 0, $subseq_len);
+            if ($seqlen < $subseq_len)
+            {
+                $self->{sequence} = substr($tempseq, 0, $seqlen);
+            }
+            else
+            {
+                $self->{sequence} = substr($tempseq, 0, $subseq_len);
+            }
 
             $self->{sequence} = uc($self->{sequence});
             $self->{sequence} =~ s/U/T/g;

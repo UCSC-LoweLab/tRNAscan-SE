@@ -3,7 +3,7 @@
 #
 # --------------------------------------------------------------
 # This module is part of the tRNAscan-SE program.
-# Copyright (C) 2017 Patricia Chan and Todd Lowe 
+# Copyright (C) 2020 Patricia Chan and Todd Lowe 
 # --------------------------------------------------------------
 #
 
@@ -992,7 +992,7 @@ sub decode_nci_tRNA_properties
         
         for (my $i = 0; $i < scalar(@introns); $i++)
         {
-            if ($acodon_index > $introns[$i]->{rel_start})
+            if ($acodon_index >= $introns[$i]->{rel_start})
             {
 				$acodon_index += ($introns[$i]->{rel_end} - $introns[$i]->{rel_start} + 1);
 			}

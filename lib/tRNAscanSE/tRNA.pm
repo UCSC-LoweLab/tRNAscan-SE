@@ -571,7 +571,7 @@ sub get_intron
 	my $self = shift;
 	my $index = shift;
 	
-	if ($index >= 0 and $index < get_intron_count())
+	if ($index >= 0 and $index < $self->get_intron_count())
 	{
 		return $self->{data}->[_ar_introns]->[$index];
 	}

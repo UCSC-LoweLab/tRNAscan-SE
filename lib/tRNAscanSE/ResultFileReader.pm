@@ -16,7 +16,7 @@ use tRNAscanSE::LogFile;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(read_out_file read_ss_file read_sprinzl_pos_map read_noncanomical);
+our @EXPORT = qw(read_out_file read_ss_file read_sprinzl_pos_map read_noncanomical read_name_map);
 
 sub read_out_file
 {
@@ -226,39 +226,63 @@ sub read_ss_file
 	my $tRNA = undef;
 	my $intron = {};
 	my $line = "";
-	my ($startpos, $endpos);
+	my ($startpos, $endpos, $coords);
 	
 	$log->status("Reading tRNAs from $file");
 	open(SSFILE, "$file") || die "Error: Fail to open $file\n";	
 	while ($line = <SSFILE>)
 	{
-		if ($line =~ /^(\S+)\s+\((\d+)\-(\d+)\)\s+Length:\s(\d+)\sbp/)
+		if ($line =~ /^(\S+)\s+\((\S+)\)\s+Length:\s(\d+)\sbp/)
 		{
 			if (defined $tRNA and $tRNA->tRNAscan_id() ne "")
 			{
 				$tRNA->set_mature_tRNA();
 				$tRNAs->put($tRNA);
 			}
+			my $id = $1;
+			$coords = $2;
 			$tRNA = tRNAscanSE::tRNA->new;
 			$tRNA->tRNAscan_id($1);
-			$startpos = $2;
-			$endpos = $3;
 			$tRNA->seqname(substr($tRNA->tRNAscan_id(), 0, rindex($tRNA->tRNAscan_id(), ".")));
-			if ($startpos < $endpos)
+			if (index($coords, ",") == -1)
 			{
-				$tRNA->start($startpos);
-				$tRNA->end($endpos);
-				$tRNA->strand("+");
+				($startpos, $endpos) = split(/-/, $coords);
+				if ($startpos < $endpos)
+				{
+					$tRNA->start($startpos);
+					$tRNA->end($endpos);
+					$tRNA->strand("+");
+				}
+				else
+				{
+					$tRNA->end($startpos);
+					$tRNA->start($endpos);
+					$tRNA->strand("-");
+				}
 			}
 			else
 			{
-				$tRNA->end($startpos);
-				$tRNA->start($endpos);
-				$tRNA->strand("-");
+				my @loci = split(/\,/, $coords);
+				for (my $exon_count = 0; $exon_count < scalar(@loci); $exon_count++)
+				{
+					($startpos, $endpos) = split(/-/, $loci[$exon_count]);
+					if ($startpos < $endpos)
+					{
+						$tRNA->exon_start($exon_count+1, $startpos);
+						$tRNA->exon_end($exon_count+1, $endpos);
+						$tRNA->exon_strand($exon_count+1, "+");
+					}
+					else
+					{
+						$tRNA->exon_end($exon_count+1, $startpos);
+						$tRNA->exon_start($exon_count+1, $endpos);
+						$tRNA->exon_strand($exon_count+1, "-");
+					}
+				}
 			}
 			if ($tRNA->seqname() eq "chrM" or $tRNA->seqname() eq "M" or $tRNA->seqname() eq "chrMT" or $tRNA->seqname() eq "MT")
 			{
-				$tRNA->category("mt");
+				$tRNA->category("mito");
 			}
 			else
 			{
@@ -280,30 +304,34 @@ sub read_ss_file
 			}
 			$tRNA->score($5);
 			$tRNA->set_domain_model("infernal", $tRNA->score());
+			my $frag = index($tRNA->isotype(), "-exon");
+			if ($frag > -1)
+			{
+				$tRNA->isotype(substr($tRNA->isotype(), 0, $frag));
+			}
 			$tRNA->tRNAscan_id($tRNA->tRNAscan_id()."-".$tRNA->isotype().$tRNA->anticodon());
+			$tRNA->gtrnadb_id($tRNA->tRNAscan_id());
 			if ($tRNA->isotype() eq "Undet")
 			{
-				$tRNA->category("und");
+				$tRNA->category("undetermined_ac");
 			}			
 		}
 		elsif ($line =~ /^HMM Sc=(\S+)\s+Sec struct Sc=(\S+)/)
 		{
-			my $inf_score = $3;
 			$tRNA->hmm_score($1);
 			$tRNA->ss_score($2);
-			$tRNA->update_domain_model("infernal", $inf_score, $inf_score, $tRNA->hmm_score(), $tRNA->ss_score());
+			$tRNA->update_domain_model("infernal", $tRNA->score(), $tRNA->score(), $tRNA->hmm_score(), $tRNA->ss_score());
 		}
-		elsif ($line =~ /^Possible pseudogene:\s+HMM Sc=(\S+)\s+Sec struct Sc=(\S+)/)
+		elsif ($line =~ /pseudogene:\s+HMM Sc=(\S+)\s+Sec struct Sc=(\S+)/)
 		{
-			my $inf_score = $3;
 			$tRNA->hmm_score($1);
 			$tRNA->ss_score($2);
-			$tRNA->update_domain_model("infernal", $inf_score, $inf_score, $tRNA->hmm_score(), $tRNA->ss_score());
+			$tRNA->update_domain_model("infernal", $tRNA->score(), $tRNA->score(), $tRNA->hmm_score(), $tRNA->ss_score());
 			$tRNA->pseudo(1);
 		}
 		elsif ($line =~ /^Possible intron: (\d+)-(\d+) \((\d+)-(\d+)\)/)
 		{
-			$tRNA->add_intron($1, $2, $3, $4, "");
+			$tRNA->add_intron($1, $2, $3, $4, "", "");
 		}
 		elsif ($line =~ /^Seq:\s(\S+)$/)
 		{
@@ -430,6 +458,38 @@ sub read_noncanomical
 			{
 				$tRNAs->get($index)->add_non_canonical($i - 8, $columns[$i]);
 			}
+		}
+	}
+
+	close(FILE_IN);
+}
+
+sub read_name_map
+{
+	my ($global_vars, $file) = @_;
+	my $log = $global_vars->{log_file};
+	my $tRNAs = $global_vars->{tRNAs};
+	my $line = "";
+	my @columns = ();
+	my $index = -1;
+	
+	$tRNAs->sort_array("tRNAscanid");
+	
+	$log->status("Reading GtRNAdb name map from $file");
+	open(FILE_IN, "$file") or die "Fail to open $file\n";
+
+	$line = <FILE_IN>;
+	chomp($line);
+	my @header = split(/\t/, $line);
+	
+	while ($line = <FILE_IN>)
+	{
+		chomp($line);
+		@columns = split(/\t/, $line, -1);
+		$index = $tRNAs->bsearch_id($columns[0], "tRNAscanid");
+		if ($index > -1)
+		{		
+			$tRNAs->get($index)->gtrnadb_id($columns[1]);
 		}
 	}
 

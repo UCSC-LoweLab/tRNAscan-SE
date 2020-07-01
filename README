@@ -5,7 +5,7 @@ Patricia Chan, Brian Lin, and Todd Lowe
 
 School of Engineering, University of California, Santa Cruz, CA
 --------------------------------------------------------------
-Current release: 2.0.5 (October 2019)
+Current release: 2.0.6 (May 2020)
 
 tRNAscan-SE was written in the PERL (version 5) script language.
 Input consists of DNA or RNA sequences in FASTA format. tRNA
@@ -32,7 +32,7 @@ pol III tRNA promoters (our implementation referred to as EufindtRNA),
 which is still available as a backward compatible option. Predicted
 tRNA genes will then be assessed using a set of isotype-specific covariance
 models. Comparative analysis among these models enables better annotation,
-particularly of atypical tRNAs, some of which may produce √írecoding√ì
+particularly of atypical tRNAs, some of which may produce “recoding”
 events due to mutations in the anticodon. The new tRNAscan-SE also enables
 better recognition of tRNA-derived SINEs that are abundant in many
 eukaryotic genomes by using a post quality filter.
