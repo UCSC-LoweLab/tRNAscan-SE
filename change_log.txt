@@ -1,3 +1,11 @@
+v2.0.7
+- Fixed positioning when multiple noncanonical introns exist in some 
+archaeal tRNAs that may cause incorrect isotype and anticodon annotation
+- Handle mt-tRNAs in vertebrates other than mt-tRNA-Ser-GCU that are missing
+D-arm
+- Add new genetic code file to handle mt-tRNA-Asp in marsupials that have GCC
+anticodon
+
 v2.0.6
 - Fixed anticodon coordinates when archaeal non-canonical intron locates next 
 to anticodon
