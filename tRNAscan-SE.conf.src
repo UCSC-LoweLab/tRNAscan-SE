@@ -82,6 +82,7 @@ gc_invert_mito: {lib_dir}/gcode/gcode.invmito
 gc_ciliate_cyto: {lib_dir}/gcode/gcode.cilnuc
 gc_echinoderm_mito: {lib_dir}/gcode/gcode.echdmito
 gc_other_mito: {lib_dir}/gcode/gcode.othmito
+gc_marsu_mito: {lib_dir}/gcode/gcode.marsumito
 
 # Infernal 1.1 covariance models
 cm_dir: {lib_dir}/models

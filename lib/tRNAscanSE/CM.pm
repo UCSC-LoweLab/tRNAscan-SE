@@ -710,7 +710,6 @@ sub find_anticodon
 
     my $seq = $trna->seq();
     my $ss = $trna->ss();
-    my $model = $trna->model();
     my $undef_anticodon = $gc->undef_anticodon();
     
     my $antiloop_index = 0;
@@ -720,25 +719,7 @@ sub find_anticodon
     # looking for second stem-loop structure ">>>>...<<<<"
     # that should be the anitocodon stem-loop 
 
-    if ($opts->mito_mode() and $model eq "SerGCT")
-    {
-        if ($ss =~ /^([>.]+)>([.]{4,})<+.+[>.]+<[<.]+/o)
-        {
-            # set to index position of first base in anticodon loop
-            $antiloop_index = length($1) + 1;
-            $antiloop_len = length($2);   # anticodon loop length            
-        }
-    }
-    elsif ($opts->mito_mode()) 
-    {
-        if ($ss =~ /^([>.]+<[<.]+[>.]*)>([.]{4,})<+.+[>.]+<[<.]+/o)
-        {
-            # set to index position of first base in anticodon loop
-            $antiloop_index = length($1) + 1;
-            $antiloop_len = length($2);   # anticodon loop length
-        }
-    }
-    elsif ($ss =~ /^([>.]+<[<.]+>[>.]*)>([.]{4,})<+.+[>.]+<[<.]+/o)
+    if ($ss =~ /^([>.]+<[<.]+>[>.]*)>([.]{4,})<+.+[>.]+<[<.]+/o)
     {
         # set to index position of first base in anticodon loop
         $antiloop_index = length($1) + 1;
@@ -757,65 +738,155 @@ sub find_anticodon
 
         # Don't guess if even number of bp in 
         # anticodon loop
-        if (!$opts->mito_mode())
-        {
-            # remove introns & non-canonical bases
-            $antiloop =~ s/[a-z]//g;      
 
-            if ((length($antiloop) < 5) || ((length($antiloop) % 2) == 0))
-            {
-                return ($undef_anticodon, -1, -1, -1);
-            }
-            # get anticodon 
-            $ac_index = (length($antiloop) - 3) / 2;
-            $anticodon = substr($antiloop, $ac_index, 3);
-            $verify_ac = substr($seq, $ac_index + $antiloop_index, 3);
-        }
-        else
+        # remove introns & non-canonical bases
+        $antiloop =~ s/[a-z]//g;      
+
+        if ((length($antiloop) < 5) || ((length($antiloop) % 2) == 0))
         {
-            $antiloop = uc($antiloop);
-            if (length($antiloop) < 5)
+            return ($undef_anticodon, -1, -1, -1);
+        }
+        # get anticodon 
+        $ac_index = (length($antiloop) - 3) / 2;
+        $anticodon = substr($antiloop, $ac_index, 3);
+        $verify_ac = substr($seq, $ac_index + $antiloop_index, 3);
+            
+        # check to see if anticodon extracted from the entire
+        #  trna sequence (coveseq) is same as that extracted from
+        #  just the anticodon loop sequence (antiloop)
+    
+        if ($verify_ac ne $anticodon)
+        {
+            $trna->category("undetermined_ac");
+            return ($undef_anticodon, -1, -1, -1);            
+        }
+        return ($anticodon, $antiloop_index, $antiloop_end, $ac_index + $antiloop_index + 1);
+    }
+    else
+    {
+        $trna->category("undetermined_ac");
+        return ($undef_anticodon, -1, -1, -1);
+    }
+}
+
+# find anticodon loop & a-codon from coves or cmsearch output
+sub find_mito_anticodon
+{                
+    my $self = shift;
+    my ($opts, $trna, $gc) = @_;
+    my ($antiloop, $antiloop_end, $ac_index, $anticodon, $verify_ac);
+
+    my $seq = $trna->seq();
+    my $ss = $trna->ss();
+    my $model = $trna->model();
+    my $undef_anticodon = $gc->undef_anticodon();
+    
+    my $antiloop_index = 0;
+    my $antiloop_len = 0;
+
+    # Match pattern in secondary structure output, 
+    # looking for second stem-loop structure ">>>>...<<<<"
+    # that should be the anitocodon stem-loop 
+
+    if ($model eq "SerGCT" and $ss =~ /^([>.]+)>([.]{4,})<+.+[>.]+<[<.]+/o)
+    {
+        # set to index position of first base in anticodon loop
+        $antiloop_index = length($1) + 1;
+        $antiloop_len = length($2);   # anticodon loop length
+        $trna->note("No D-arm");
+    }
+    elsif ($ss =~ /^([>.]+<[<.]+[>.]*)>([.]{4,})<[<.]+[.]{4,}<[<.]+$/o)
+    {
+        # set to index position of first base in anticodon loop
+        $antiloop_index = length($1) + 1;
+        $antiloop_len = length($2);   # anticodon loop length          
+        $trna->note("No T-arm");
+    }
+    elsif ($ss =~ /^([>.]+[.]{4,}[>.]+)>([.]{4,})<[<.]+\.+[>.]+<[<.]+$/o)
+    {
+        # set to index position of first base in anticodon loop
+        $antiloop_index = length($1) + 1;
+        $antiloop_len = length($2);   # anticodon loop length
+        $trna->note("No D-arm");
+    }
+    elsif ($ss =~ /^([>.]+<[<.]+[>.]*)>([.]{4,})<+.+[>.]+<[<.]+/o)
+    {
+        # set to index position of first base in anticodon loop
+        $antiloop_index = length($1) + 1;
+        $antiloop_len = length($2);   # anticodon loop length          
+    }
+    
+    if ($antiloop_index != 0 and $antiloop_len != 0)
+    {
+        # index of end of anticodon loop
+        $antiloop_end = $antiloop_index + $antiloop_len - 1;
+    
+        $antiloop = substr($seq, $antiloop_index, $antiloop_len);
+    
+        # remove '-' gaps from loop
+        $antiloop =~ s/[\-]//g;      
+
+        # Don't guess if even number of bp in 
+        # anticodon loop
+        $antiloop = uc($antiloop);
+        if (length($antiloop) < 5)
+        {
+            $trna->category("undetermined_ac");
+            return ($undef_anticodon, -1, -1, -1);
+        }
+        elsif ((length($antiloop) % 2) == 0)
+        {
+            my $found = 0;
+            $ac_index = int((length($antiloop) - 3) / 2);
+            $anticodon = substr($antiloop, $ac_index, 3);
+            my $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
+            if ($model eq $isotype or ($model eq "SerGCT" and $isotype eq "Ser") or ($model eq "SerTGA" and $isotype eq "Ser")
+                or ($model eq "LeuTAG" and $isotype eq "Leu") or ($model eq "LeuTAA" and $isotype eq "Leu"))
             {
-                $trna->category("undetermined_ac");
-                return ($undef_anticodon, -1, -1, -1);
+                $trna->category("mito_ac_mislocation");
+                $found = 1;
             }
-            elsif ((length($antiloop) % 2) == 0)
+            else
             {
-                $ac_index = int((length($antiloop) - 3) / 2);
+                $ac_index = int((length($antiloop) - 3) / 2 + 1);
                 $anticodon = substr($antiloop, $ac_index, 3);
-                my $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
+                $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
                 if ($model eq $isotype or ($model eq "SerGCT" and $isotype eq "Ser") or ($model eq "SerTGA" and $isotype eq "Ser")
                     or ($model eq "LeuTAG" and $isotype eq "Leu") or ($model eq "LeuTAA" and $isotype eq "Leu"))
                 {
                     $trna->category("mito_ac_mislocation");
-                    $trna->note("(".$anticodon.")");
+                    $found = 1;                        
                 }
                 else
                 {
-                    $ac_index = int((length($antiloop) - 3) / 2 + 1);
+                    $ac_index = 2;
                     $anticodon = substr($antiloop, $ac_index, 3);
                     $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
                     if ($model eq $isotype or ($model eq "SerGCT" and $isotype eq "Ser") or ($model eq "SerTGA" and $isotype eq "Ser")
                         or ($model eq "LeuTAG" and $isotype eq "Leu") or ($model eq "LeuTAA" and $isotype eq "Leu"))
                     {
                         $trna->category("mito_ac_mislocation");
-                        $trna->note("(".$anticodon.")");                        
-                    }
-                    else
-                    {
-                        $trna->category("mito_mismatch_ac");
-                        $trna->note("(".$anticodon.")");
+                        $found = 1;                        
                     }
                 }
-                return ($undef_anticodon, -1, -1, -1);
+            }
+
+            if ($found)
+            {
+                $verify_ac = uc(substr($seq, $ac_index + $antiloop_index, 3));
             }
             else
             {
-                # get anticodon 
-                $ac_index = (length($antiloop) - 3) / 2;
-                $anticodon = substr($antiloop, $ac_index, 3);
-                $verify_ac = uc(substr($seq, $ac_index + $antiloop_index, 3));
+                $trna->category("undetermined_ac");
+                return ($undef_anticodon, -1, -1, -1);
             }
+        }
+        else
+        {
+            # get anticodon 
+            $ac_index = (length($antiloop) - 3) / 2;
+            $anticodon = substr($antiloop, $ac_index, 3);
+            $verify_ac = uc(substr($seq, $ac_index + $antiloop_index, 3));
         }
             
         # check to see if anticodon extracted from the entire
@@ -1044,7 +1115,7 @@ sub decode_nci_tRNA_properties
     else
     {                               
         ($intron, $istart, $iend) = $self->find_intron($trna->seq(), $antiloop_index, $antiloop_end);
-        
+
         if ($intron)
         {
             $mat_seq = substr($trna->seq(), 0, $istart - 1).substr($trna->seq(), $iend);
@@ -1372,7 +1443,7 @@ sub decode_mito_tRNA_properties
 
     $anticodon = "ERR";
 
-    ($anticodon, $antiloop_index, $antiloop_end, $acodon_index) = $self->find_anticodon($opts, $trna, $gc);
+    ($anticodon, $antiloop_index, $antiloop_end, $acodon_index) = $self->find_mito_anticodon($opts, $trna, $gc);
     $trna->anticodon($anticodon);
     $trna->add_ac_pos($acodon_index, $acodon_index + 2);
     
@@ -1424,8 +1495,15 @@ sub decode_mito_tRNA_properties
     {
         if ($trna->category() eq "")
         {
-            $trna->category("mito_iso_conflict");
-            $trna->note("(".$isotype.")");
+            $trna->category("mito_inconsistent_isotype");
+            if ($trna->note() ne "")
+            {
+                $trna->note("(".$isotype."); ".$trna->note());
+            }
+            else
+            {
+                $trna->note("(".$isotype.")");
+            }
         }
         $log->broadcast($prescan_tRNA->tRNAscan_id().".trna".$trna->id()." - isotype/anticondon conflict\t Model: ".$trna->model()." Detected: ".$isotype.$anticodon."\n".
                         $trna->seq()."\n".$trna->ss()."\n");
@@ -1434,15 +1512,22 @@ sub decode_mito_tRNA_properties
     {
         if ($trna->category() eq "")
         {
-            $trna->category("mito_mismatch_ac");
-            $trna->note("(".$model_ac.")");
+            $trna->category("mito_inconsistent_ac");
+            if ($trna->note() ne "")
+            {
+                $trna->note("(".$model_ac."); ".$trna->note());
+            }
+            else
+            {
+                $trna->note("(".$model_ac.")");
+            }
         }
     }
     if ($vert_mito_isotype eq "")
     {
         if ($trna->category() eq "")
         {
-            $trna->category("mito_noncanonical_ac");
+            $trna->category("mito_unexpected_ac");
         }
     }
     
@@ -1581,7 +1666,7 @@ sub scan_noncanonical_introns
         if ($nci_count > 0)
         {
             my $ci_seq = "";
-			if ($ci_index > -1)
+			if ($ci_index > -1 and $tRNA->model() ne "SeC")
             {
                 if ($add_ci)
                 {
@@ -1640,7 +1725,7 @@ sub add_canonical_intron
         }
     }
     $mat_seq .= substr($precursor_seq, $introns[scalar(@introns)-1]->{rel_end});
-    
+
     if (uc($mat_seq) ne uc($tRNA->mat_seq()))
     {
         my $trna_file = tRNAscanSE::Sequence->new;
@@ -1785,12 +1870,13 @@ sub check_intron_validity
     }
     
     my $clip_seq = substr($padded_seq, 0, $cm_intron->start() - $previous_intron_len + length($pre_intron_seq) - 1) . substr($padded_seq, $cm_intron->end() - $previous_intron_len - length($post_intron_seq));
+
     my $trna_file = tRNAscanSE::Sequence->new;
     $trna_file->open_file($global_constants->get("tmp_trnaseq_file"), "write");
     $trna_file->set_seq_info($tRNA->seqname().".trna".&pad_num($tRNA->id(), 6), $tRNA->tRNAscan_id(), length($clip_seq), $clip_seq);
     $trna_file->write_fasta();
     $trna_file->close_file();
-    
+
     my $scan_flag = 0;
     my $cms_output_file = "";
     my $file_idx = -1;
@@ -1852,7 +1938,31 @@ sub check_intron_validity
             {
                 $intron_start = $pos + 1;
                 $intron_end = length($intron_seq) + $pos;
-                my @ar_introns = $tRNA->ar_introns();
+                my @ar_introns_src = $tRNA->ar_introns();
+                my @ar_introns = ();
+                my $intron_rec = {};
+                # Adjust intron relative start and end when round1 seq is different from round2 seq
+                for (my $i = 0; $i < scalar(@ar_introns_src); $i++)
+                {
+                    $intron_rec = {};
+                    $intron_rec->{seq} = $ar_introns_src[$i]->{seq};
+                    $intron_rec->{start} = $ar_introns_src[$i]->{start};
+                    $intron_rec->{end} = $ar_introns_src[$i]->{end};
+                    $intron_rec->{type} = $ar_introns_src[$i]->{type};
+                    if (uc(substr($seq, $ar_introns_src[$i]->{rel_start} - 1, $ar_introns_src[$i]->{rel_end} - $ar_introns_src[$i]->{rel_start} + 1)) ne uc($ar_introns_src[$i]->{seq}))
+                    {
+                        my $pos_i = index(uc($seq), uc($ar_introns_src[$i]->{seq}));
+                        $intron_rec->{rel_start} = $pos_i + 1;
+                        $intron_rec->{rel_end} = length($ar_introns_src[$i]->{seq}) + $pos_i;
+                    }
+                    else
+                    {
+                        $intron_rec->{rel_start} = $ar_introns_src[$i]->{rel_start};
+                        $intron_rec->{rel_end} = $ar_introns_src[$i]->{rel_end};
+                    }
+                    $ar_introns[$i] = $intron_rec;
+                }
+                # Check intron duplication
                 for (my $i = 0; $i < scalar(@ar_introns); $i++)
                 {
                     if ($ar_introns[$i]->{rel_start} == $intron_start and $ar_introns[$i]->{rel_end} == $intron_end)
@@ -1879,6 +1989,13 @@ sub check_intron_validity
                         $log->debug("Overlap with intron ".$tRNA->tRNAscan_id()." ".$intron_seq);
                         last;
                     }
+                    elsif ($ar_introns[$i]->{type} eq "NCI" and
+                           &seg_overlap($ar_introns[$i]->{rel_start}, $ar_introns[$i]->{rel_end}, $intron_start, $intron_end, 0))
+                    {
+                        $ret_value = 0;
+                        $log->debug("Overlap with noncanonical intron ".$tRNA->tRNAscan_id()." ".$intron_seq);
+                        last;
+                    }
                 }
             }
             
@@ -1901,6 +2018,16 @@ sub check_intron_validity
             my $hit_overlap = &seg_overlap($tRNA->start(), $tRNA->end(), $start, $end, 40);
             if ($ret_value and $hit_overlap and $cm_tRNA->score() > $tRNA->score() and length($cm_tRNA->seq()) >= $self->{min_tRNA_no_intron})
             {
+                # Adjust intron relative start and end when round1 seq is different from round2 seq
+                my @ar_introns = $tRNA->ar_introns();
+                for (my $i = 0; $i < scalar(@ar_introns); $i++)
+                {
+                    if (uc(substr($seq, $ar_introns[$i]->{rel_start} - 1, $ar_introns[$i]->{rel_end} - $ar_introns[$i]->{rel_start} + 1)) ne uc($ar_introns[$i]->{seq}))
+                    {
+                        my $pos_i = index(uc($seq), uc($ar_introns[$i]->{seq}));
+                        $tRNA->set_intron($i, $pos_i + 1, length($ar_introns[$i]->{seq}) + $pos_i, $ar_introns[$i]->{type}, $ar_introns[$i]->{seq});
+                    }
+                }
                 $tRNA->upstream(substr($clip_seq, 0, $upstream_len));
                 $tRNA->downstream(substr($clip_seq, $cm_tRNA->end()));
                 $tRNA->seq($seq);

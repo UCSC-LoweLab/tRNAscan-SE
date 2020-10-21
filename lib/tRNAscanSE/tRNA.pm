@@ -1274,6 +1274,22 @@ sub get_base_at_rel_align_pos
 	return $base;
 }
 
+sub get_seq_at_rel_align_pos
+{
+	my $self = shift;
+	my $rel_pos_start = shift;
+	my $rel_pos_end = shift;
+
+	my $len = $rel_pos_end - $rel_pos_start + 1;
+
+	my $seq = "";
+	if ($rel_pos_start != -1 and $len > 0)
+	{
+		$seq = substr($self->{data}->[_sprinzl_align], $rel_pos_start, $len);
+	}
+	return $seq;
+}
+
 sub get_rel_pos
 {
 	my $self = shift;

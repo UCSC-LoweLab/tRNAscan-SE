@@ -548,13 +548,24 @@ sub save_allStruct_output
 			$note = $tRNA->category();
 			$note =~ s/_/ /g;
 			$note =~ s/mito //g;
-			$note =~ s/iso/type/g;
 			$note =~ s/ac/anticodon/g;
 			$note = uc(substr($note, 0, 1)).substr($note, 1);
 			if ($tRNA->note() ne "")
 			{
-				$note = $note . " ". $tRNA->note();
+				if ($tRNA->note() =~ /^\(/)
+				{
+					$note = $note . " ". $tRNA->note();
+				}
+				else
+				{
+					$note = $note . ";". $tRNA->note();
+				}
 			}
+			$line .= "Note: ".$note;
+		}
+		elsif ($tRNA->note() ne "")
+		{
+			$note = $tRNA->note();
 			$line .= "Note: ".$note;
 		}
 	}
@@ -832,12 +843,22 @@ sub construct_tab_output
 		if ($tRNA->category() ne "" and $opts->detail())
 		{
 			$note = $tRNA->category();
-			$note =~ s/mito //g;
-			$note =~ s/iso/type/g;
+			$note =~ s/mito_//g;
 			if ($tRNA->note() ne "")
 			{
-				$note = $note . $tRNA->note();
+				if ($tRNA->note() =~ /^\(/)
+				{
+					$note = $note . " " . $tRNA->note();
+				}
+				else
+				{
+					$note = $note . ";" . $tRNA->note();
+				}
 			}
+		}
+		elsif ($tRNA->note() ne "" and $opts->detail())
+		{
+			$note = $tRNA->note();
 		}
 		$result_line .= "\t".$note;
 	}

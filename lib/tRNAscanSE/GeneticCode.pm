@@ -117,7 +117,7 @@ sub initialize
                 'GAA'=>'Phe', 'GTT'=>'Asn', 'TTT'=>'Lys', 'GTC'=>'Asp', 'TTC'=>'Glu',
                 'GTG'=>'His', 'TTG'=>'Gln', 'GTA'=>'Tyr',
                 'GAT'=>'Ile', 'TAT'=>'Met', 'CAT'=>'Met',
-                'GCA'=>'Cys', 'TCA'=>'Trp'
+                'GCA'=>'Cys', 'TCA'=>'Trp', 'GCC'=>'Asp',
     };
     
     $self->{trans_map} = +{};

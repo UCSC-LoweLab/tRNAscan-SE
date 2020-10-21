@@ -210,7 +210,14 @@ sub bsearch_id
     my $x = shift;
     my $key = shift;
     my ($l, $u) = (0, @{$self->{ar_tRNAs}} - 1);  
-    my $i;                       
+    my $i;
+
+    my @x_parts = ();
+    if ($key eq "gtrnadb_id_parts")
+    {
+        @x_parts = split(/\-/, $x);
+    }
+
     while ($l <= $u)
 	{
 		$i = int(($l + $u)/2);
@@ -259,6 +266,66 @@ sub bsearch_id
                 return $i; 
             }
         }
+        elsif ($key eq "gtrnadb_id_parts")
+        {
+            my @ar_parts = split(/\-/, $self->{ar_tRNAs}->[$i]->gtrnadb_id());
+            if ($ar_parts[0] lt $x_parts[0])
+            {
+                $l = $i+1;
+            }
+            elsif ($ar_parts[0] gt $x_parts[0])
+            {
+                $u = $i-1;
+            }
+            else
+            {
+                if ($ar_parts[1] lt $x_parts[1])
+                {
+                    $l = $i+1;
+                }
+                elsif ($ar_parts[1] gt $x_parts[1])
+                {
+                    $u = $i-1;
+                }
+                else
+                {
+                    if ($ar_parts[2] lt $x_parts[2])
+                    {
+                        $l = $i+1;
+                    }
+                    elsif ($ar_parts[2] gt $x_parts[2])
+                    {
+                        $u = $i-1;
+                    }
+                    else
+                    {
+                        if ($ar_parts[3] < $x_parts[3])
+                        {
+                            $l = $i+1;
+                        }
+                        elsif ($ar_parts[3] > $x_parts[3])
+                        {
+                            $u = $i-1;
+                        }
+                        else
+                        {
+                            if ($ar_parts[4] < $x_parts[4])
+                            {
+                                $l = $i+1;
+                            }
+                            elsif ($ar_parts[4] > $x_parts[4])
+                            {
+                                $u = $i-1;
+                            }
+                            else
+                            {
+                                return $i;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         elsif ($key eq "extdb_id")
         {
             if ($self->{ar_tRNAs}->[$i]->extdb_id() lt $x)
@@ -294,6 +361,10 @@ sub sort_array
     elsif ($key eq "gtrnadb_id")
     {
         @{$self->{ar_tRNAs}} = sort sort_by_gtrnadb_id @{$self->{ar_tRNAs}};
+    }
+    elsif ($key eq "gtrnadb_id_parts")
+    {
+        @{$self->{ar_tRNAs}} = sort sort_by_gtrnadb_id_parts @{$self->{ar_tRNAs}};
     }
     elsif ($key eq "extdb_id")
     {
@@ -342,6 +413,18 @@ sub sort_by_tRNAscanid
 sub sort_by_gtrnadb_id
 {
     return ($a->gtrnadb_id() cmp $b->gtrnadb_id()); 
+}
+
+sub sort_by_gtrnadb_id_parts
+{
+    my @a_parts = split(/\-/, $a->gtrnadb_id());
+    my @b_parts = split(/\-/, $b->gtrnadb_id());
+
+    return ($a_parts[0] cmp $b_parts[0] ||
+            $a_parts[1] cmp $b_parts[1] ||
+            $a_parts[2] cmp $b_parts[2] ||
+            int($a_parts[3]) <=> int($b_parts[3]) ||
+            int($a_parts[4]) <=> int($b_parts[4]));
 }
 
 sub sort_by_extdb_id

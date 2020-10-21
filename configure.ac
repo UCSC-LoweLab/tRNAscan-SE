@@ -7,8 +7,24 @@ AC_PREREQ([2.69])
 AC_INIT([tRNAscan-SE],[2.0.0],[pchan@soe.ucsc.edu])
 AC_CONFIG_HEADERS([config.h])
 
+AC_ARG_ENABLE(debugging,
+  AS_HELP_STRING([--enable-debugging],[enable debugging, default: no]),
+[
+case "${enableval}" in
+  yes) enable_debugging=yes ;;
+  no)  enable_debugging=no ;;
+  *)   AC_MSG_ERROR([bad value ${enableval} for --enable-debugging]) ;;
+esac],
+[enable_debugging=no])
+
 # Checks for programs.
 AC_PROG_CC
+
+if test "$enable_debugging" != "no"; then
+  CFLAGS="-g -Wall"
+else
+  CFLAGS="-O3"
+fi
 
 # standard install program
 AC_PROG_INSTALL

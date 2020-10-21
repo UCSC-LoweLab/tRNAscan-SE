@@ -4,7 +4,7 @@
 # tRNAscan-SE: a program for improved detection of transfer RNA
 #              genes in genomic sequence
 #
-# Version 2.0.6
+# Version 2.0.7
 #
 # Copyright (C) 2020 Patricia Chan and Todd Lowe 
 #
@@ -39,8 +39,8 @@ use tRNAscanSE::IntResultFile;
 use tRNAscanSE::MultiResultFile;
 use tRNAscanSE::SS;
 
-our $version = "2.0.6"; 
-our $release_date = "May 2020";
+our $version = "2.0.7"; 
+our $release_date = "Oct 2020";
 our $program_id = "tRNAscan-SE-".$version;
 
 # modified by 'make'
@@ -621,7 +621,7 @@ sub error_handler
 
 sub display_credits
 {
-    print STDERR "Copyright (C) 2019 Patricia Chan and Todd Lowe\n",
+    print STDERR "Copyright (C) 2020 Patricia Chan and Todd Lowe\n",
                  "                   University of California Santa Cruz\n",
                  "Freely distributed under the GNU General Public License (GPLv3)\n\n";
 }
@@ -1063,7 +1063,7 @@ sub set_options
         $opts->no_isotype(0);
         if ($opt_isocm eq "off")
         {
-            $opts->no_isotype(0);
+            $opts->no_isotype(1);
         }
 
         if ($opt_mt ne '')

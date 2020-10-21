@@ -715,6 +715,7 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_debugging
 enable_dependency_tracking
 enable_silent_rules
 '
@@ -1341,6 +1342,7 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-debugging      enable debugging, default: no
   --enable-dependency-tracking
                           do not reject slow dependency extractors
   --disable-dependency-tracking
@@ -2198,6 +2200,19 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 ac_config_headers="$ac_config_headers config.h"
 
 
+# Check whether --enable-debugging was given.
+if test "${enable_debugging+set}" = set; then :
+  enableval=$enable_debugging;
+case "${enableval}" in
+  yes) enable_debugging=yes ;;
+  no)  enable_debugging=no ;;
+  *)   as_fn_error $? "bad value ${enableval} for --enable-debugging" "$LINENO" 5 ;;
+esac
+else
+  enable_debugging=no
+fi
+
+
 # Checks for programs.
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -2988,6 +3003,12 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
+
+if test "$enable_debugging" != "no"; then
+  CFLAGS="-g -Wall"
+else
+  CFLAGS="-O3"
+fi
 
 # standard install program
 ac_aux_dir=
