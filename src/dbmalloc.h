@@ -1,7 +1,7 @@
 /*
  * (c) Copyright 1990, 1991, 1992 Conor P. Cahill (uunet!virtech!cpcahil).  
- * You may copy, distribute, and use this software as long as this
- * copyright statement is not removed.
+ * 
+ * This code is distributed under GNU GENERAL PUBLIC LICENSE v3.
  */
 /*
  * $Id: malloc.h.org,v 1.31 1992/06/22 23:40:10 cpcahil Exp $
