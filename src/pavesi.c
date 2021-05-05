@@ -24,6 +24,7 @@
 #include <string.h>
 #include "squid.h"
 #include "eufind_const.h"
+#include "pavesi.h"
 
 /* #define NO_AMBIG       -use this option to eliminate conservative
  *                         calling of 'N's as best possible matches
@@ -88,7 +89,7 @@ float BTermDistSc_Mat[BTERM_MAT_SIZE] = {-0.54,-1.40,-2.80,-3.36,
 					 -3.24,-5.44,-5.44,-4.06,-5.44}; 
 
 
-int
+void
 Init_tRNA(TRNA_TYPE *tRNA) {
   
   strcpy(tRNA->iso_type,"???");
@@ -135,15 +136,14 @@ GetBbox (float *score, int *seqidx, char *iseq, int seqlen,
       *score += Bbox_Mat[(int)(iseq[i+j])][j];
     }
     if (*score > BBOX_CUTOFF) {
-      if (verbose)
-	if (strand == 0) {
-	  printf("Bbox at %i (End=%d), Sc= %.2f\n",i,i+BBOX_LEN+11,
-		 *score);
-	}
-	else {
-	  printf("Bbox at %i (End=%d), Sc= %.2f\n",seqlen-i+1,
-		 seqlen-(i+BBOX_LEN+11)+1,*score);
-	}
+      if (verbose) {
+	      if (strand == 0) {
+	        printf("Bbox at %i (End=%d), Sc= %.2f\n",i,i+BBOX_LEN+11,*score);
+	      }
+	      else {
+	        printf("Bbox at %i (End=%d), Sc= %.2f\n",seqlen-i+1,seqlen-(i+BBOX_LEN+11)+1,*score);
+	      }
+      }
       *seqidx = i;
       return 1;
     }
@@ -221,7 +221,7 @@ GetSecABox(TRNA_TYPE *tRNA, char *seq)
 }
 
 
-int
+void
 GetBestABox (TRNA_TYPE *tRNA, char *seq, char *iseq, int seqlen,
 	     int strand, int verbose, int Max_AB_dist, int prev_Abox_st)
 {
@@ -257,7 +257,7 @@ GetBestABox (TRNA_TYPE *tRNA, char *seq, char *iseq, int seqlen,
     /* score gap at pos 17 by looking for conserved 'GG' at pos 18 &
        19 */
 
-    if ((seq[i+j] == 'G')) {   /*  && (seq[i+j+1] == 'G')) { */
+    if (seq[i+j] == 'G') {   /*  && (seq[i+j+1] == 'G')) { */
       sc2 = Abox_Mat[GAP_ROW][j];
       offset1 = 1;
     }
@@ -317,7 +317,7 @@ GetBestABox (TRNA_TYPE *tRNA, char *seq, char *iseq, int seqlen,
 	tRNA->AboxSc = sc1+sc2+sc3;
 	best_offset1= offset1;
 	best_gap = gapct;
-	if (verbose)
+	if (verbose) {
 	  if (strand == 0) {
 	  printf("Abox at %d (St=%d) A:%.2f AB(%d):%.2f I:%.2f\n",
 		 i,i-5,tRNA->AboxSc, tRNA->Bbox_st-abox_end-1,tRNA->ABdistSc,
@@ -329,7 +329,7 @@ GetBestABox (TRNA_TYPE *tRNA, char *seq, char *iseq, int seqlen,
 		   tRNA->Bbox_st-abox_end-1,tRNA->ABdistSc,
 		   tRNA->AboxSc+tRNA->BboxSc+tRNA->ABdistSc);
 	  }
-	    
+  }
       }
     }   /* for gapct, enumerating all possible gaps */
   }   /* for i, starting pos for A box */
@@ -373,6 +373,7 @@ GetBestTrxTerm (TRNA_TYPE *tRNA, char *seq, int seqlen,
     tRNA->TermSc = MAX_PENALTY;
     return 0;
   }
+  return 0;
 }
 
 

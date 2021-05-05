@@ -11,10 +11,11 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
-
-#ifdef NEED_GETOPTH
 #include <getopt.h>
-#endif
+
+/*#ifdef NEED_GETOPTH
+#include <getopt.h>
+#endif*/
 
 #include "structs.h"
 #include "funcs.h"

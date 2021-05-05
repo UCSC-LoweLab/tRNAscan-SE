@@ -4,9 +4,9 @@
 # tRNAscan-SE: a program for improved detection of transfer RNA
 #              genes in genomic sequence
 #
-# Version 2.0.7
+# Version 2.0.8
 #
-# Copyright (C) 2020 Patricia Chan and Todd Lowe 
+# Copyright (C) 2021 Patricia Chan and Todd Lowe 
 #
 # School of Engineering, University of California, Santa Cruz
 # trna@soe.ucsc.edu
@@ -39,8 +39,8 @@ use tRNAscanSE::IntResultFile;
 use tRNAscanSE::MultiResultFile;
 use tRNAscanSE::SS;
 
-our $version = "2.0.7"; 
-our $release_date = "Oct 2020";
+our $version = "2.0.8"; 
+our $release_date = "May 2021";
 our $program_id = "tRNAscan-SE-".$version;
 
 # modified by 'make'
@@ -594,7 +594,8 @@ sub prepare_intron_scan
 # clean up temp files
 sub cleanup
 {                       
-    system("rm -f ".$global_constants->get("temp_dir")."/tscan$$".'*');
+    system("rm -f ".$global_constants->get("temp_dir")."/tscan$$"."_*");
+    system("rm -f ".$global_constants->get("temp_dir")."/tscan$$".".*");
     system("rm -f ".$opts->fafile().".pid");
 }
 

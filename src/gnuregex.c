@@ -1611,10 +1611,12 @@ regex_compile (pattern, size, syntax, bufp)
               if (syntax & RE_NO_BK_PARENS) goto normal_backslash;
 
               if (COMPILE_STACK_EMPTY)
+              {
                 if (syntax & RE_UNMATCHED_RIGHT_PAREN_ORD)
                   goto normal_backslash;
                 else
                   return REG_ERPAREN;
+              }
 
             handle_close:
               if (fixup_alt_jump)
@@ -1631,10 +1633,12 @@ regex_compile (pattern, size, syntax, bufp)
 
               /* See similar code for backslashed left paren above.  */
               if (COMPILE_STACK_EMPTY)
+              {
                 if (syntax & RE_UNMATCHED_RIGHT_PAREN_ORD)
                   goto normal_char;
                 else
                   return REG_ERPAREN;
+              }
 
               /* Since we just checked for an empty stack above, this
                  ``can't happen''.  */
@@ -2312,7 +2316,7 @@ typedef struct
    value.  Assumes the variable `fail_stack'.  Probably should only
    be called from within `PUSH_FAILURE_POINT'.  */
 #define PUSH_FAILURE_ITEM(item)						\
-  fail_stack.stack[fail_stack.avail++] = (fail_stack_elt_t) item
+  fail_stack.stack[fail_stack.avail++] = (fail_stack_elt_t) ((unsigned long) item)
 
 /* The complement operation.  Assumes `fail_stack' is nonempty.  */
 #define POP_FAILURE_ITEM() fail_stack.stack[--fail_stack.avail]
@@ -2391,10 +2395,10 @@ typedef struct
       }									\
 									\
     DEBUG_PRINT2 ("  Pushing  low active reg: %d\n", lowest_active_reg);\
-    PUSH_FAILURE_ITEM ((unsigned long)lowest_active_reg);		\
+    PUSH_FAILURE_ITEM (lowest_active_reg);				\
 									\
     DEBUG_PRINT2 ("  Pushing high active reg: %d\n", highest_active_reg);\
-    PUSH_FAILURE_ITEM ((unsigned long)highest_active_reg);				\
+    PUSH_FAILURE_ITEM (highest_active_reg);				\
 									\
     DEBUG_PRINT2 ("  Pushing pattern 0x%x: ", pattern_place);		\
     DEBUG_PRINT_COMPILED_PATTERN (bufp, pattern_place, pend);		\
@@ -2448,7 +2452,7 @@ typedef struct
 #define POP_FAILURE_POINT(str, pat, low_reg, high_reg, regstart, regend, reg_info)\
 {									\
   DEBUG_STATEMENT (fail_stack_elt_t failure_id;)			\
-  unsigned long this_reg;								\
+  int this_reg;								\
   unsigned char *string_temp;					\
 									\
   assert (!FAIL_STACK_EMPTY ());					\
@@ -2480,14 +2484,14 @@ typedef struct
 									\
   /* Restore register info.  */						\
   high_reg = (unsigned long) POP_FAILURE_ITEM ();				\
-  DEBUG_PRINT2 ("  Popping high active reg: %u\n", high_reg);		\
+  DEBUG_PRINT2 ("  Popping high active reg: %d\n", high_reg);		\
 									\
   low_reg = (unsigned long) POP_FAILURE_ITEM ();				\
-  DEBUG_PRINT2 ("  Popping  low active reg: %u\n", low_reg);		\
+  DEBUG_PRINT2 ("  Popping  low active reg: %d\n", low_reg);		\
 									\
   for (this_reg = high_reg; this_reg >= low_reg; this_reg--)		\
     {									\
-      DEBUG_PRINT2 ("    Popping reg: %u\n", this_reg);			\
+      DEBUG_PRINT2 ("    Popping reg: %d\n", this_reg);			\
 									\
       reg_info[this_reg].word = POP_FAILURE_ITEM ();			\
       DEBUG_PRINT2 ("      info: 0x%x\n", reg_info[this_reg]);		\
@@ -2818,7 +2822,7 @@ re_set_registers (bufp, regs, num_regs, starts, ends)
     {
       bufp->regs_allocated = REGS_UNALLOCATED;
       regs->num_regs = 0;
-      regs->start = regs->end = (regoff_t) 0;
+      regs->start = regs->end = (regoff_t*) 0;
     }
 }
 

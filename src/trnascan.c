@@ -69,6 +69,7 @@ where supported options are:\n\
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <getopt.h>
 
 #ifdef MEMDEBUG
 #include "dbmalloc.h"
@@ -332,7 +333,7 @@ printresult(FILE *fpo,     /* output file pointer */
 	    long int sqoffset   /* offset nucleotide numbering by this much (set with -i param) */
 	    );
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
   /* pointers to the different files fpi=input file, fpo=output file, 
    fpcons1= T-Psi-C matrix file, fpcons2= D matrix file */
@@ -1176,8 +1177,8 @@ for (i=0; i<*lsig; i++)
     if (table_cons[i][j] == 1.0)
       {
       k++;
-      table_inv[k][1]=i;
-      table_inv[k][2]=j;
+      table_inv[k][0]=i;
+      table_inv[k][1]=j;
       }
     }
   }
@@ -1418,7 +1419,7 @@ return seqlen;
 
 /* Calls to this function eliminated for efficiency  T. Lowe  11/95  */
 
-myindex (char *s, char *t)
+int myindex (char *s, char *t)
 {
 int i, j, k;
 for (i=0; s[i] != '\0'; i++) {
@@ -1476,10 +1477,10 @@ int readsignal(char *ptr,      /* pointer to the sequence */
       
 /*   (original code commented out)
 
-     temp[0]= *(ptr+table_inv[k][1]);
+     temp[0]= *(ptr+table_inv[k][0]);
       j = myindex(base,temp);              */
    
-	  switch (*(ptr+table_inv[k][1])) {
+	  switch (*(ptr+table_inv[k][0])) {
 	  case 'a': j=0; break;
 	  case 'c': j=1; break;
 	  case 'g': j=2; break;
@@ -1491,9 +1492,9 @@ int readsignal(char *ptr,      /* pointer to the sequence */
 
 
 #ifdef NO_AMBIG
-	if (j == table_inv[k][2]) 
+	if (j == table_inv[k][1]) 
 #else
-	if ((j == table_inv[k][2]) || (j == -1)) 		 
+	if ((j == table_inv[k][1]) || (j == -1)) 		 
 #endif
 	    (*ninv)++;
 

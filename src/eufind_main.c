@@ -22,9 +22,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 #include "squid.h"
 #include "sqfuncs.h"
 #include "eufind_const.h"
+#include "pavesi.h"
 
 char eufind_version[] = "1.1";
 char eufind_date[]    = "Aug 2000";
@@ -62,7 +64,7 @@ main (int argc, char **argv)
 				   not look for poly T terminator
 				   signal */
     StrictMode,                 /* require poly T terminator */
-    NoReformat;                 /* flag to prevent extra work of 
+    NoReformat;                 /* flag to prevent extra work of */
 				/*   changing seqs to DNA & upper case */
 				/*   alphabet */
 
@@ -165,7 +167,7 @@ main (int argc, char **argv)
       Die("Memory failure, couldn't allocate sequence\n");
     
     /* integer-encode sequence */ 
-    if (errno = IntEncodeSeq(iseq,seq,sqinfo.len))
+    if ((errno = IntEncodeSeq(iseq,seq,sqinfo.len)))
       Die("Unable to encode sequence %s at base %d\n",
 	  sqinfo.name,errno);
     

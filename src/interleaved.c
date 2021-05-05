@@ -143,7 +143,7 @@ dataline_clustal(char *buf, char *expected_name)
   while (*buf && isspace(*buf)) buf++;
   if (*buf == '\0' || strchr(commentsyms, *buf) != NULL) 
     return 0;			/* blank or comment */
-  if (expected_name != NULL && strncmp(buf, expected_name, strlen(expected_name) == 0))
+  if (expected_name != NULL && strncmp(buf, expected_name, strlen(expected_name)) == 0)
     return 1;			/* matches expected seq name */
   for (; *buf != '\0'; buf++)
     {				/* Clustal has no coord lines to worry about */
@@ -213,7 +213,7 @@ dataline_MSF(char *buf, char *expected_name)
   while (*buf && isspace(*buf)) buf++;
   if (*buf == '\0' || strchr(commentsyms, *buf) != NULL) 
     return 0;			/* blank or comment */
-  if (expected_name != NULL && strncmp(buf, expected_name, strlen(expected_name) == 0))
+  if (expected_name != NULL && strncmp(buf, expected_name, strlen(expected_name)) == 0)
     return 1;			/* matches expected seq name */
   for (; *buf != '\0'; buf++)
     {				/* MSF has coordinate lines to worry about */
