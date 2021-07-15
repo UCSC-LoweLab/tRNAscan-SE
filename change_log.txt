@@ -1,14 +1,19 @@
+v2.0.9
+- Added option -j or --gff for generating GFF3 output file
+- Checked Infernal version compatibilty
+- Fixed bug on parsing tRNAscan output in legacy mode
+
 v2.0.8
 - Fixed temporary file cleanup process
-- Add function declarations for eufind and trnascan to eliminate errors
+- Added function declarations for eufind and trnascan to eliminate errors
 when building with Xcode 12
 
 v2.0.7
 - Fixed positioning when multiple noncanonical introns exist in some 
 archaeal tRNAs that may cause incorrect isotype and anticodon annotation
-- Handle mt-tRNAs in vertebrates other than mt-tRNA-Ser-GCU that are missing
+- Handled mt-tRNAs in vertebrates other than mt-tRNA-Ser-GCU that are missing
 D-arm
-- Add new genetic code file to handle mt-tRNA-Asp in marsupials that have GCC
+- Added new genetic code file to handle mt-tRNA-Asp in marsupials that have GCC
 anticodon
 
 v2.0.6

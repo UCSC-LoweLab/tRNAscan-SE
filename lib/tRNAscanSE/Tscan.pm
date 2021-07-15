@@ -230,11 +230,11 @@ sub process_tRNAscan_hits
             {
                 if ($trna->strand() eq "+")
                 {
-                    $trna->end() = $trna->start() + length($trna->seq()) - 1;
+                    $trna->end($trna->start() + length($trna->seq()) - 1);
                 }
                 else
                 {
-                    $trna->end() = $trna->start() - length($trna->seq()) + 1;
+                    $trna->end($trna->start() - length($trna->seq()) + 1);
                 }
             }
             

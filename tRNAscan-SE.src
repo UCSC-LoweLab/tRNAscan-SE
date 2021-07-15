@@ -4,7 +4,7 @@
 # tRNAscan-SE: a program for improved detection of transfer RNA
 #              genes in genomic sequence
 #
-# Version 2.0.8
+# Version 2.0.9
 #
 # Copyright (C) 2021 Patricia Chan and Todd Lowe 
 #
@@ -39,8 +39,8 @@ use tRNAscanSE::IntResultFile;
 use tRNAscanSE::MultiResultFile;
 use tRNAscanSE::SS;
 
-our $version = "2.0.8"; 
-our $release_date = "May 2021";
+our $version = "2.0.9"; 
+our $release_date = "July 2021";
 our $program_id = "tRNAscan-SE-".$version;
 
 # modified by 'make'
@@ -481,6 +481,14 @@ sub run_cm_scan
                 &write_bed(\%global_vars);
             }
         }
+
+        if ($opts->gff_file() ne "")
+        {
+            if ($curseq_trnact > 0)
+            {
+                &write_gff(\%global_vars);
+            }
+        }
         
         $sp_int_results->clear_index();
         $curseq_trnact = 0;
@@ -695,6 +703,7 @@ sub print_all_options
     "  -m  --stats <file>          : save statistics summary for run in <file>\n",
     "                                  (speed, # tRNAs found in each part of search, etc)\n",        
     "  -b  --bed <file>            : save results in BED file format of <file>\n",
+    "  -j  --gff <file>            : save results in GFF3 file format of <file>\n",
     "  -a  --fasta <file>          : save predicted tRNA sequences in FASTA file format of <file>\n",
     "  -l  --log <file>            : save log of program progress in <file>\n",
     "  --detail                    : display prediction outputs in detailed view\n",
@@ -762,7 +771,7 @@ sub set_options
     our $opt_cove=0; our $opt_mid=0; our $opt_max=0; our $opt_eufind=0; our $opt_tscan=0;
     our $opt_ncintron=0; our $opt_frag='';
     our $opt_breakdown=0; our $opt_nopseudo=0; our $opt_nomerge=0; our $opt_hitsrc=0;
-    our $opt_output=''; our $opt_struct=''; our $opt_stats=''; our $opt_isospecific=''; our $opt_bed=''; our $opt_fasta=''; our $opt_brief=0;
+    our $opt_output=''; our $opt_struct=''; our $opt_stats=''; our $opt_isospecific=''; our $opt_bed=''; our $opt_gff=''; our $opt_fasta=''; our $opt_brief=0;
     our $opt_detail=0;
     our $opt_prefix=''; our $opt_match=''; our $opt_search='';
     our $opt_gencode=''; our $opt_codons=0;
@@ -789,7 +798,7 @@ sub set_options
                             # file name input specifiers
                             "gencode|g=s",
                             # file name output specifiers 
-                            "output|o=s", "stats|m=s", "struct|f=s", "bed|b=s", "fasta|a=s", "isospecific|s=s", "acedb", "brief",
+                            "output|o=s", "stats|m=s", "struct|f=s", "bed|b=s", "gff|j=s", "fasta|a=s", "isospecific|s=s", "acedb", "brief",
                             "fsres|r=s","verbose|v=s","w=s","falsepos|F=s","missed=s", "detail",
                             #string parameters
                             "prefix|p=s","match=s","search=s","emode=s","tmode=s",
@@ -1613,6 +1622,30 @@ sub set_options
             $opts->bed_file($opt_bed);
         }
         &check_output_file($opts->bed_file(), $opts->prompt_for_overwrite());            
+    }
+
+    if ($opt_gff ne "")
+    {
+        if ($opt_gff eq "#")
+        {
+            $opts->gff_file("$fafile.gff");        
+        }
+        elsif (($opt_gff eq "\$") || ($opt_gff eq "-"))
+        {                                               
+            $opts->gff_file("-");
+            
+            # sends output to stdout instead of tabular output
+            if ($opts->results_to_stdout())
+            {
+                $opts->results_to_stdout(0);
+                $opts->out_file("/dev/null");      
+            }  
+        }
+        else
+        {
+            $opts->gff_file($opt_gff);
+        }
+        &check_output_file($opts->gff_file(), $opts->prompt_for_overwrite());            
     }
     
     if ($opt_fasta ne "")

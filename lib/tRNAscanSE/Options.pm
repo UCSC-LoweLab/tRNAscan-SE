@@ -100,6 +100,7 @@ sub initialize
     $self->{save_all_struct} = 0;        # save secondary structures if nonzero
     
     $self->{bed_file} = "";              # bed file
+    $self->{gff_file} = "";              # gff file
     $self->{output_fasta_file} = "";     # predicted tRNA fasta file
     $self->{all_struct_file} = "";       # sec struct file, set with -f option
     $self->{isotype_specific_file} = ""; # isotype specific result file
@@ -463,6 +464,13 @@ sub bed_file
     my $self = shift;
     if (@_) { $self->{bed_file} = shift; }
     return $self->{bed_file};
+}
+
+sub gff_file
+{
+    my $self = shift;
+    if (@_) { $self->{gff_file} = shift; }
+    return $self->{gff_file};
 }
 
 sub output_fasta_file
@@ -905,6 +913,18 @@ sub display_run_options
         else
         {
             print $FHAND "$self->{bed_file}\n";
+        }
+    }
+    if ($self->{gff_file} ne "")
+    {
+        print $FHAND "tRNA predictions saved to:         ";
+        if ($self->{gff_file} eq "-")
+        {
+            print $FHAND "Standard output\n";
+        }
+        else
+        {
+            print $FHAND "$self->{gff_file}\n";
         }
     }
     if ($self->{output_fasta_file} ne "")

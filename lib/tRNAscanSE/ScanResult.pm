@@ -20,7 +20,7 @@ use tRNAscanSE::Options;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(save_Acedb_from_firstpass write_tRNA write_tRNAs output_tRNA write_bed output_split_fragments print_results_header);
+our @EXPORT = qw(save_Acedb_from_firstpass write_tRNA write_tRNAs output_tRNA write_bed write_gff output_split_fragments print_results_header);
 
 our $printed_header = 0;            # keeps track of whether or
                                     # or not results column header
@@ -1109,6 +1109,117 @@ sub convert_bed_score
 	}
 	
 	return $bed_score;
+}
+
+sub write_gff
+{
+	my ($global_vars) = @_;
+	my $opts = $global_vars->{options};
+    my $sp_int_results = $global_vars->{sp_int_results};
+    my $iso_int_results = $global_vars->{iso_int_results};
+	
+	$sp_int_results->sort_records("bed_output");
+	if (!$opts->no_isotype())
+	{
+		$iso_int_results->sort_records("tRNAscan_id");
+	}
+	
+	my $tRNA = tRNAscanSE::tRNA->new;
+    &open_for_append(\*FILE_OUT, $opts->gff_file());
+	print FILE_OUT "##gff-version 3\n";
+    my @sp_indexes = $sp_int_results->get_indexes();
+    my @ iso_indexes = $iso_int_results->get_indexes();
+    if ($sp_int_results->open_file("read"))
+    {		
+		if (!$opts->no_isotype())
+		{
+			$iso_int_results->open_file("read");
+		}
+		
+		for (my $i = 0; $i < scalar(@sp_indexes); $i++)
+		{
+			$sp_int_results->get_tRNA($sp_indexes[$i]->[0], $tRNA);
+			
+			if (!$opts->no_isotype())
+			{
+				my $id = $tRNA->seqname().".t".&pad_num($tRNA->id(), 6);
+				my $index = $iso_int_results->bsearch_tRNAscan_id($id);
+				if ($index > -1)
+				{
+					$iso_int_results->get_tRNA($iso_indexes[$index]->[0], $tRNA);
+					my ($type, $model, $score, $ss) = $tRNA->get_highest_score_model();
+					if ($tRNA->isotype() eq "Met" and $type eq "cyto" and ($model eq "iMet" or $model eq "fMet" or $model eq "Ile2"))
+					{
+						$tRNA->isotype($model);
+						$tRNA->tRNAscan_id($tRNA->seqname().".tRNA".$tRNA->id()."-".$tRNA->isotype().$tRNA->anticodon());
+					}
+					elsif ($tRNA->isotype() eq "Met" and $type eq "cyto" and $model ne "Met" and $model ne "iMet" and $model ne "fMet")
+					{
+						$tRNA->sort_multi_models("model");
+						my ($met_iso_model, $met_iso_score, $met_iso_ss) = $tRNA->get_model_hit("cyto", $tRNA->isotype());
+						my ($ile2_iso_model, $ile2_iso_score, $ile2_iso_ss) = $tRNA->get_model_hit("cyto", "Ile2");
+						if ($ile2_iso_score > 0 and $met_iso_score > 0)
+						{
+							if (($score - $ile2_iso_score) <= 5 and ($ile2_iso_score - $met_iso_score) >= 5 and $tRNA->score() > 50)
+							{
+								$tRNA->isotype("Ile2");
+								$tRNA->tRNAscan_id($tRNA->seqname().".tRNA".$tRNA->id()."-".$tRNA->isotype().$tRNA->anticodon());
+							}
+						}
+					}
+				}				
+			}
+			my $biotype = "tRNA";			
+			if ($tRNA->is_pseudo())
+			{
+				$biotype = "pseudogene";
+			}
+			print FILE_OUT $tRNA->seqname()."\ttRNAscan-SE\t".$biotype."\t".$tRNA->start()."\t".$tRNA->end()."\t".$tRNA->score()."\t".$tRNA->strand()."\t.\t".
+				"ID=".$tRNA->seqname().".trna".$tRNA->id().";Name=".$tRNA->tRNAscan_id().";isotype=".$tRNA->isotype().";anticodon=".$tRNA->anticodon().
+				";gene_biotype=".$biotype.";\n";
+
+			if ($tRNA->get_intron_count() == 0)
+			{
+				print FILE_OUT $tRNA->seqname()."\ttRNAscan-SE\texon\t".$tRNA->start()."\t".$tRNA->end()."\t.\t".$tRNA->strand()."\t.\t".
+					"ID=".$tRNA->seqname().".trna".$tRNA->id().".exon1;Parent=".$tRNA->seqname().".trna".$tRNA->id().";\n";
+			}
+			else
+			{
+				my @ar_introns = $tRNA->ar_introns();
+				if ($tRNA->strand() eq "+")
+				{
+					print FILE_OUT $tRNA->seqname()."\ttRNAscan-SE\texon\t".$tRNA->start()."\t";
+					for (my $i = 0; $i < scalar(@ar_introns); $i++)
+					{
+						print FILE_OUT ($ar_introns[$i]->{start}-1)."\t.\t".$tRNA->strand()."\t.\t".
+							"ID=".$tRNA->seqname().".trna".$tRNA->id().".exon".($i+1).";Parent=".$tRNA->seqname().".trna".$tRNA->id().";\n";
+						print FILE_OUT $tRNA->seqname()."\ttRNAscan-SE\texon\t".($ar_introns[$i]->{end}+1)."\t";
+					}
+					print FILE_OUT $tRNA->end()."\t.\t".$tRNA->strand()."\t.\t".
+						"ID=".$tRNA->seqname().".trna".$tRNA->id().".exon".(scalar(@ar_introns)+1).";Parent=".$tRNA->seqname().".trna".$tRNA->id().";\n";
+				}
+				else
+				{
+					my $end = $tRNA->end();
+					for (my $i = 0; $i < scalar(@ar_introns); $i++)
+					{
+						print FILE_OUT $tRNA->seqname()."\ttRNAscan-SE\texon\t".($ar_introns[$i]->{end}+1)."\t".$end."\t.\t".$tRNA->strand()."\t.\t".
+							"ID=".$tRNA->seqname().".trna".$tRNA->id().".exon".($i+1).";Parent=".$tRNA->seqname().".trna".$tRNA->id().";\n";
+						$end = $ar_introns[$i]->{start} - 1;
+					}
+					print FILE_OUT $tRNA->seqname()."\ttRNAscan-SE\texon\t".$tRNA->start()."\t".$end."\t.\t".$tRNA->strand()."\t.\t".
+						"ID=".$tRNA->seqname().".trna".$tRNA->id().".exon".(scalar(@ar_introns)+1).";Parent=".$tRNA->seqname().".trna".$tRNA->id().";\n";
+				}
+			}			
+		}
+		
+		if (!$opts->no_isotype())
+		{
+			$iso_int_results->close_file();
+		}
+		$sp_int_results->close_file();
+	}
+	close(FILE_OUT);
 }
 
 sub output_split_fragments

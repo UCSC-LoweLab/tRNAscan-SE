@@ -655,12 +655,38 @@ sub set_infernal_bin
     {
         die "FATAL: Unable to find ".$self->{cmsearch_bin}." executable\n\n";
     }
+    else
+    {
+        $self->check_infernal_version($self->{cmsearch_bin});
+    }
 
     $self->{cmscan_bin} = $bindir."/".$self->{cmscan_bin};
     if (!(-x $self->{cmscan_bin}))
     {
         die "FATAL: Unable to find ".$self->{cmscan_bin}." executable\n\n";
     }
+    else
+    {
+        $self->check_infernal_version($self->{cmscan_bin});
+    }
+}
+
+sub check_infernal_version
+{
+    my $self = shift;
+    my $exec_bin = shift;
+
+    my $cmd = $exec_bin." -h | grep INFERNAL";
+    my $line = `$cmd`;
+    my $version = 0;
+    if ($line =~ /INFERNAL 1.1.(\d+) /)
+    {
+        $version = $1;
+    }
+    if ($version < 2)
+    {
+        die "FATAL: ".$exec_bin." is incompatible with tRNAscan-SE. Please install Infernal version 1.1.2 or above.\n\n";
+    } 
 }
 
 sub set_search_params
