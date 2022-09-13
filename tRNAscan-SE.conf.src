@@ -29,8 +29,8 @@ organelle_cm_cutoff: 15
 isotype_cm_cutoff.euk: 20
 isotype_cm_cutoff.arch: 20
 isotype_cm_cutoff.bact: 20
-isotype_cm_cutoff.mito_mammal: 20
-isotype_cm_cutoff.mito_vert: 20
+isotype_cm_cutoff.mito_mammal: 15
+isotype_cm_cutoff.mito_vert: 15
 
 # max size of -w parameter passed to covels when using a pre-scanner (eufind or tRNAscan)
 max_tRNA_length: 500
@@ -166,6 +166,7 @@ mito_cm_vert.Arg: {mito_cm_vert_dir}/TRNAinf-mito-vert-Arg.cm
 mito_cm_vert.Asn: {mito_cm_vert_dir}/TRNAinf-mito-vert-Asn.cm
 mito_cm_vert.Asp: {mito_cm_vert_dir}/TRNAinf-mito-vert-Asp.cm
 mito_cm_vert.Cys: {mito_cm_vert_dir}/TRNAinf-mito-vert-Cys.cm
+mito_cm_vert.Cys_NoDarm: {mito_cm_vert_dir}/TRNAinf-mito-vert-Cys-no-darm.cm
 mito_cm_vert.Gln: {mito_cm_vert_dir}/TRNAinf-mito-vert-Gln.cm
 mito_cm_vert.Glu: {mito_cm_vert_dir}/TRNAinf-mito-vert-Glu.cm
 mito_cm_vert.Gly: {mito_cm_vert_dir}/TRNAinf-mito-vert-Gly.cm

@@ -814,7 +814,7 @@ sub find_mito_anticodon
     # looking for second stem-loop structure ">>>>...<<<<"
     # that should be the anitocodon stem-loop 
 
-    if ($model eq "SerGCT" and $ss =~ /^([>.]+)>([.]{4,})<+.+[>.]+<[<.]+/o)
+    if (($model eq "SerGCT" or $model eq "Cys_NoDarm") and $ss =~ /^([>.]+)>([.]{4,})<+.+[>.]+<[<.]+/o)
     {
         # set to index position of first base in anticodon loop
         $antiloop_index = length($1) + 1;
@@ -863,37 +863,25 @@ sub find_mito_anticodon
         elsif ((length($antiloop) % 2) == 0)
         {
             my $found = 0;
-            $ac_index = int((length($antiloop) - 3) / 2);
-            $anticodon = substr($antiloop, $ac_index, 3);
-            my $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
-            if ($model eq $isotype or ($model eq "SerGCT" and $isotype eq "Ser") or ($model eq "SerTGA" and $isotype eq "Ser")
-                or ($model eq "LeuTAG" and $isotype eq "Leu") or ($model eq "LeuTAA" and $isotype eq "Leu"))
+            my $j = 0;
+            for (my $i = int((length($antiloop) - 3) / 2); $i <= (length($antiloop) - 3) and $i >= 0; $i = $i + $j)
             {
-                $trna->category("mito_ac_mislocation");
-                $found = 1;
-            }
-            else
-            {
-                $ac_index = int((length($antiloop) - 3) / 2 + 1);
+                $ac_index = $i;
                 $anticodon = substr($antiloop, $ac_index, 3);
-                $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
+                my $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
                 if ($model eq $isotype or ($model eq "SerGCT" and $isotype eq "Ser") or ($model eq "SerTGA" and $isotype eq "Ser")
-                    or ($model eq "LeuTAG" and $isotype eq "Leu") or ($model eq "LeuTAA" and $isotype eq "Leu"))
+                    or ($model eq "LeuTAG" and $isotype eq "Leu") or ($model eq "LeuTAA" and $isotype eq "Leu") 
+                    or ($model eq "Cys_NoDarm" and $isotype eq "Cys"))
                 {
                     $trna->category("mito_ac_mislocation");
-                    $found = 1;                        
+                    $found = 1;
+                    last;
                 }
-                else
+                $j = abs($j);
+                $j++;
+                if ($j % 2 == 0)
                 {
-                    $ac_index = 2;
-                    $anticodon = substr($antiloop, $ac_index, 3);
-                    $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
-                    if ($model eq $isotype or ($model eq "SerGCT" and $isotype eq "Ser") or ($model eq "SerTGA" and $isotype eq "Ser")
-                        or ($model eq "LeuTAG" and $isotype eq "Leu") or ($model eq "LeuTAA" and $isotype eq "Leu"))
-                    {
-                        $trna->category("mito_ac_mislocation");
-                        $found = 1;                        
-                    }
+                    $j = $j * -1;
                 }
             }
 
@@ -913,6 +901,42 @@ sub find_mito_anticodon
             $ac_index = (length($antiloop) - 3) / 2;
             $anticodon = substr($antiloop, $ac_index, 3);
             $verify_ac = uc(substr($seq, $ac_index + $antiloop_index, 3));
+            my $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
+            my $model_iso = $model;
+            if (length($model) > 3)
+            {
+                $model_iso = substr($model, 0, 3);
+            }
+            if ($isotype ne $model_iso)
+            {
+                $verify_ac = "";
+                my $found = 0;
+                my $j = 1;
+                for (my $i = (length($antiloop) - 3) / 2 - 1; $i <= (length($antiloop) - 3) and $i >= 0; $i = $i + $j)
+                {
+                    $ac_index = $i;
+                    $anticodon = substr($antiloop, $ac_index, 3);
+                    my $isotype = $gc->get_tRNA_type($self, $anticodon, $self->{main_cm_file_path}->{$model}, $model, $self->cove_mode());
+                    if ($model eq $isotype or ($model eq "SerGCT" and $isotype eq "Ser") or ($model eq "SerTGA" and $isotype eq "Ser")
+                        or ($model eq "LeuTAG" and $isotype eq "Leu") or ($model eq "LeuTAA" and $isotype eq "Leu") 
+                        or ($model eq "Cys_NoDarm" and $isotype eq "Cys"))
+                    {
+                        $trna->category("mito_ac_mislocation");
+                        $found = 1;
+                        last;
+                    }
+                    $j = abs($j);
+                    $j++;
+                    if ($j % 2 == 1)
+                    {
+                        $j = $j * -1;
+                    }
+                }
+                if ($found)
+                {
+                    $verify_ac = uc(substr($seq, $ac_index + $antiloop_index, 3));
+                }
+            }
         }
             
         # check to see if anticodon extracted from the entire
@@ -1515,7 +1539,18 @@ sub decode_mito_tRNA_properties
     if (length($trna->model()) > 3)
     {
         $model_iso = substr($trna->model(), 0, 3);
-        $model_ac = substr($trna->model(), 3);
+        if ($trna->model() =~ /^(\S+)_/)
+        {
+            my $temp = $1;
+            if (length($temp) > 3)
+            {
+                $model_ac = substr($temp, 3);
+            }
+        }
+        else
+        {
+            $model_ac = substr($trna->model(), 3);
+        }
     }
     if ($model_iso ne $isotype)
     {
@@ -2593,9 +2628,9 @@ sub run_cmsearch
 #		$score_cutoff = $self->{organelle_cm_cutoff};
 #	}
 #	else
-#   {
+#    {
         $score_cutoff = $self->{cm_cutoff};
-#   }
+#    }
     
     foreach my $cur_cm (sort keys %{$self->{main_cm_file_path}})
     {

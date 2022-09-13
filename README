@@ -6,14 +6,9 @@ Patricia Chan, Brian Lin, and Todd Lowe
 School of Engineering, University of California, Santa Cruz, CA
 --------------------------------------------------------------
 
-tRNAscan-SE was written in the PERL (version 5) script language.
-Input consists of DNA or RNA sequences in FASTA format. tRNA
-predictions are output in standard tabular or ACeDB format.
-tRNAscan-SE does no tRNA detection itself, but instead combines the
-strengths of three independent tRNA prediction programs by negotiating
-the flow of information between them, performing a limited amount of
-post-processing, and outputting the results in one of several
-formats.
+tRNAscan-SE predicts tRNA genes from input DNA or RNA sequences 
+in FASTA format. tRNA predictions are output in standard tabular format,
+secondary structure file, FASTA file, BED file, and GTF file.
 
 tRNAscan-SE pioneers the large-scale use of covariance models to
 annotate tRNA genes in genomes. A covariance model is an implementation of
@@ -31,12 +26,12 @@ pol III tRNA promoters (our implementation referred to as EufindtRNA),
 which is still available as a backward compatible option. Predicted
 tRNA genes will then be assessed using a set of isotype-specific covariance
 models. Comparative analysis among these models enables better annotation,
-particularly of atypical tRNAs, some of which may produce ÒrecodingÓ
+particularly of atypical tRNAs, some of which may produce recoding
 events due to mutations in the anticodon. The new tRNAscan-SE also enables
 better recognition of tRNA-derived SINEs that are abundant in many
 eukaryotic genomes by using a post quality filter.
 
-This distribution includes the PERL script tRNAscan-SE, the convariance
+This distribution includes the source code of tRNAscan-SE, the convariance
 models, all the files necessary to compile and run the complete COVE
 package (version 2.4.4), all the files necessary to compile and run the modified
 version of tRNAscan (version 1.4), and all the files needed to compile
@@ -54,8 +49,12 @@ http://trna.ucsc.edu/tRNAscan-SE/
 or at
 https://github.com/UCSC-LoweLab/tRNAscan-SE
 
-If you use this software, please cite the Nucleic Acids Research paper
-describing the program & its analysis of several genomes (4).
+If you use this software, please cite 
+
+Chan, P.P., Lin, B.Y., Mak, A.J. and Lowe, T.M. (2021) "tRNAscan-SE 2.0: 
+improved detection and functional classification of transfer RNA genes",
+Nucleic Acids Res. 49:9077â€“9096.
+https://doi.org/10.1093/nar/gkab688
 
 If you have any questions, bug reports, or suggestions, please e-mail
 
@@ -83,7 +82,3 @@ References
    S. (1994) "Identification of new eukaryotic tRNA genes in genomic DNA
    databases by a multistep weight matrix analysis of transcriptional
    control regions", Nucl. Acids Res., 22, 1247-1256.
-
-5. Lowe, T.M. & Eddy, S.R. (1997) "tRNAscan-SE: A program
-   for improved detection of transfer RNA genes in genomic
-   sequence", Nucl. Acids Res., 25, 955-964.

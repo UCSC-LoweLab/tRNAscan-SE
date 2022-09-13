@@ -29,7 +29,7 @@ bin_coves_SE_SOURCES = $(COVESRC) src/score_main.c
 
 # process scripts
 # treat tRNAscan-SE.conf as a script since it's just easier
-dist_bin_SCRIPTS = bin/sstofa bin/fasta2gsi bin/EukHighConfidenceFilter tRNAscan-SE tRNAscan-SE.conf
+dist_bin_SCRIPTS = bin/sstofa bin/fasta2gsi bin/EukHighConfidenceFilter bin/MitoHighConfidenceFilter tRNAscan-SE tRNAscan-SE.conf
 # for a few files, need to substitute perl path, bin directory, and lib directory
 # first, define a function for it
 do_subst = sed -e 's,\@bindir\@,$(bindir),g' -e 's,\@libdir\@,$(libdir),g' -e 's,[@]PERL[@],$(PERL),g' -e 's,\@INFERNAL\@,$(INFERNAL),g' 
@@ -37,7 +37,7 @@ do_subst = sed -e 's,\@bindir\@,$(bindir),g' -e 's,\@libdir\@,$(libdir),g' -e 's
 # extra steps for cleaning/distribution
 CLEANFILES = $(dist_bin_SCRIPTS) $(srcdir)/lib/*
 include_HEADERS = $(srcdir)/src/*.h 
-EXTRA_DIST = lib src/sstofa.in src/fasta2gsi.in EukHighConfidenceFilter tRNAscan-SE.src tRNAscan-SE.conf.src 
+EXTRA_DIST = lib src/sstofa.in src/fasta2gsi.in EukHighConfidenceFilter MitoHighConfidenceFilter tRNAscan-SE.src tRNAscan-SE.conf.src 
 
 # then create build rules
 
@@ -60,6 +60,10 @@ bin/fasta2gsi: src/fasta2gsi.in Makefile
 bin/EukHighConfidenceFilter: EukHighConfidenceFilter.in Makefile
 	$(do_subst) < $(srcdir)/EukHighConfidenceFilter.in > bin/EukHighConfidenceFilter
 	chmod +x bin/EukHighConfidenceFilter
+
+bin/MitoHighConfidenceFilter: MitoHighConfidenceFilter.in Makefile
+	$(do_subst) < $(srcdir)/MitoHighConfidenceFilter.in > bin/MitoHighConfidenceFilter
+	chmod +x bin/MitoHighConfidenceFilter
 
 # copy libraries. We don't have "libraries" in the libgmp.so.4 kind, but we do have data libraries, so we don't have to deal with lib_LTLIBRARIES.
 install-data-hook:

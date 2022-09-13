@@ -830,7 +830,8 @@ sub display_run_options
 #    }
 #    else
 #    {
-        if ($cm->cm_cutoff() != $global_constants->get("cm_cutoff"))
+        if (((!$self->mito_mode() and !$self->organelle_mode()) and $cm->cm_cutoff() != $global_constants->get("cm_cutoff")) or 
+            (($self->mito_mode() or $self->organelle_mode()) and $cm->cm_cutoff() != $global_constants->get("organelle_cm_cutoff")))
         {
             print $FHAND "tRNA covariance model search       \n"."    cutoff score:                  ".$cm->cm_cutoff()."\n";
         }

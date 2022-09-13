@@ -4,9 +4,9 @@
 # tRNAscan-SE: a program for improved detection of transfer RNA
 #              genes in genomic sequence
 #
-# Version 2.0.9
+# Version 2.0.10
 #
-# Copyright (C) 2021 Patricia Chan and Todd Lowe 
+# Copyright (C) 2022 Patricia Chan and Todd Lowe 
 #
 # School of Engineering, University of California, Santa Cruz
 # trna@soe.ucsc.edu
@@ -39,8 +39,8 @@ use tRNAscanSE::IntResultFile;
 use tRNAscanSE::MultiResultFile;
 use tRNAscanSE::SS;
 
-our $version = "2.0.9"; 
-our $release_date = "July 2021";
+our $version = "2.0.10"; 
+our $release_date = "Sept 2022";
 our $program_id = "tRNAscan-SE-".$version;
 
 # modified by 'make'
@@ -630,7 +630,7 @@ sub error_handler
 
 sub display_credits
 {
-    print STDERR "Copyright (C) 2020 Patricia Chan and Todd Lowe\n",
+    print STDERR "Copyright (C) 2022 Patricia Chan and Todd Lowe\n",
                  "                   University of California Santa Cruz\n",
                  "Freely distributed under the GNU General Public License (GPLv3)\n\n";
 }
@@ -1182,21 +1182,26 @@ sub set_options
         }        
         
         $opts->CM_mode("infernal");
+        $cm->cm_cutoff($global_constants->get("organelle_cm_cutoff"));
         
         if ($opts->mito_model() eq "mammal" or $opts->mito_model() eq "vert")
         {
             $opts->gc_file($global_constants->get("gc_vert_mito")); 
             $opts->alt_gcode(1);     
         }
-        elsif ($opts->mito_model() eq "invert")
+#        elsif ($opts->mito_model() eq "invert")
+#        {
+#            $opts->gc_file($global_constants->get("gc_invert_mito")); 
+#            $opts->alt_gcode(1);     
+#        }
+#        elsif ($opts->mito_model() eq "fungi")
+#        {
+#            $opts->gc_file($global_constants->get("gc_yeast_mito")); 
+#            $opts->alt_gcode(1);     
+#        }
+        else
         {
-            $opts->gc_file($global_constants->get("gc_invert_mito")); 
-            $opts->alt_gcode(1);     
-        }
-        elsif ($opts->mito_model() eq "fungi")
-        {
-            $opts->gc_file($global_constants->get("gc_yeast_mito")); 
-            $opts->alt_gcode(1);     
+            die "FATAL: Invalid mitochondrial tRNA option. Only mammal or vert can be used.\n";
         }
     }
 

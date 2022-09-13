@@ -160,7 +160,7 @@ sub set_options
 	if ($opt_help || $opt_result eq "" || $opt_ss eq "" || $opt_output eq "" || $opt_prefix eq "" ||
 		$opt_cmscore1 < -1 || $opt_ssscore1 < -1 || $opt_isoscore1 < -1 || $opt_isoscore2 < -1 || $opt_isomaxscore2 < -1)
 	{
-		die "Usage: EukQualityFilter [options]\n",
+		die "Usage: EukHighConfidenceFilter [options]\n",
 			"Options\n",
 			"--result -i <file>         tRNAscan-SE output file used as input\n",
 			"--ss -s <file>             tRNAscan-SE secondary structure file used as input\n",

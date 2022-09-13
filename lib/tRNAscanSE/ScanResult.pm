@@ -1107,6 +1107,10 @@ sub convert_bed_score
 	{
 		$bed_score = 1000;
 	}
+	elsif ($bed_score < 0)
+	{
+		$bed_score = 0;
+	}
 	
 	return $bed_score;
 }
