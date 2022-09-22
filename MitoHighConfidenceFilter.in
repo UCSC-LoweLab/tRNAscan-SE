@@ -118,8 +118,7 @@ sub set_options
 	$opt_score = 30;
 	
 	Getopt::Long::GetOptions("result|i=s", "ss|s=s", "output|o=s", "prefix|p=s", "remove|r",
-							 "cmscore1|c1=f", "ssscore1|m1=f", "isoscore1|e1=f",
-							 "isoscore2|e2=f", "isomaxscore2|x=f", "help|h");
+							 "score|c=f", "help|h");
 	
 	if ($opt_help || $opt_result eq "" || $opt_ss eq "" || $opt_output eq "" || $opt_prefix eq "" || $opt_score < 0)
 	{
@@ -130,7 +129,7 @@ sub set_options
 			"--output -o <file path>    Directory where output files will be written\n",
 			"--prefix -p <name>         Prefix for output file name\n",
 			"--remove -r                Remove filtered tRNA hits (default: filtered tRNA hits are only tagged)\n",
-			"--score -s <num>           Score cutoff for pseudogenes (default = 30)\n",
+			"--score -c <num>           Score cutoff for pseudogenes (default = 30)\n",
 			"--help -h                  Print this help\n\n";
 	}
 }
