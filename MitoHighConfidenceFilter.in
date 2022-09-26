@@ -588,6 +588,7 @@ sub write_ss_file
 	my $print_line = "";
 	my $include = 0;
 	my $tag = "";
+	my $has_note = 0;
 	my $ct = 0;
 	
 	print "Status: Writing secondary structure file $file_names{output_tRNAscan_ss}\n";
@@ -603,6 +604,7 @@ sub write_ss_file
 			$print_line = $line;
 			$include = 0;
 			$tag = "";
+			$has_note = 0;
 			
 			$ct++;			
 			print STDERR "." if ($ct % 1000 == 0);
@@ -656,9 +658,14 @@ sub write_ss_file
 			{
 				$print_line .= $line;
 			}
+			$has_note = 1;
 		}
 		elsif (index($line, "     *    |    *    |    *    |") > -1)
 		{
+			if ($tag ne "" and $has_note == 0)
+			{
+				$print_line .= "\n";
+			}	
 			$print_line .= $line;
 		}
 		elsif ($line =~ /^Seq:\s\S+$/)
