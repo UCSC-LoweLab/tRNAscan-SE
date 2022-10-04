@@ -1,3 +1,12 @@
+v2.0.11
+- Fixed reverse complement of IUPAC codes
+
+v2.0.10
+- Added new covariance model to detect vertebrate mt-tRNA-Cys without D-arm in
+armadillos and some reptiles
+- Added MitoHighConfidenceFilter, a post-filtering tool, for annotating 
+possible mitochondrial tRNA pseudogenes or extra genes due to duplication events
+
 v2.0.9
 - Added option -j or --gff for generating GFF3 output file
 - Checked Infernal version compatibilty
