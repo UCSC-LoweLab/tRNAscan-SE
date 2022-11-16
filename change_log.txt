@@ -1,3 +1,6 @@
+v2.0.12
+- Fixed anticodon detection issue for archaeal tRNAs with three noncanonical introns
+
 v2.0.11
 - Fixed reverse complement of IUPAC codes
 

@@ -1095,7 +1095,7 @@ sub decode_nci_tRNA_properties
         }
     }
     $mat_seq .= substr($precursor_seq, $introns[scalar(@introns)-1]->{rel_end});
-	    
+
     if (uc($mat_seq) eq uc($trna->mat_seq()))
     {
 		$trna->seq($trna->mat_seq());
@@ -1659,14 +1659,13 @@ sub scan_noncanonical_introns
                 if ($ret_value)
                 {
 					$padded_seq = $clip_seq;
-                    $previous_intron_len = $intron_len;
+                    $previous_intron_len += $intron_len;
                     $rnd2 = 1;
                     if ($duplicate)
                     {
                         $add_ci = 1;
                     }
 				}
-				
                 $arrayCMscanResults->get_next_cmsearch_hit($cm_intron);
             }
         }
@@ -1697,7 +1696,7 @@ sub scan_noncanonical_introns
                 if ($ret_value)
                 {
                     $padded_seq = $clip_seq;
-                    $previous_intron_len = $intron_len;
+                    $previous_intron_len += $intron_len;
                     if ($duplicate)
                     {
                         $add_ci = 1;
@@ -1891,7 +1890,7 @@ sub check_intron_validity
     my $log = $global_vars->{log_file};
     my $ret_value = 1;
     my $duplicate = 0;
-    
+
     my ($pre_intron, $intron, $post_intron, $pre_intron_seq, $intron_seq, $post_intron_seq);
     if ($cm_intron->ss() =~ /^([\<\-\.]{11,})(\-\<[<.]+[_.]{4,}[>.]{9,}\-[.]*\-)([-.>]+)$/)
     {
@@ -1908,7 +1907,6 @@ sub check_intron_validity
         $intron_seq =~ s/-//g;
         $pre_intron_seq =~ s/-//g;
         $post_intron_seq =~ s/-//g;
-        
         $log->debug("Found intron ".$intron_seq." for ".$tRNA->tRNAscan_id());
     }
     else

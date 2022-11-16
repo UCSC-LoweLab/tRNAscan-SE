@@ -4,7 +4,7 @@
 # tRNAscan-SE: a program for improved detection of transfer RNA
 #              genes in genomic sequence
 #
-# Version 2.0.11
+# Version 2.0.12
 #
 # Copyright (C) 2022 Patricia Chan and Todd Lowe 
 #
@@ -39,8 +39,8 @@ use tRNAscanSE::IntResultFile;
 use tRNAscanSE::MultiResultFile;
 use tRNAscanSE::SS;
 
-our $version = "2.0.11"; 
-our $release_date = "Oct 2022";
+our $version = "2.0.12"; 
+our $release_date = "Nov 2022";
 our $program_id = "tRNAscan-SE-".$version;
 
 # modified by 'make'
