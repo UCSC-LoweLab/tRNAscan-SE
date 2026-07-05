@@ -29,8 +29,8 @@ Non-ANSI compilers may need one or more -MDEFS defined.
 Dependencies
 -----------------------------------------------------------------
 
-tRNAscan-SE 2.0 requires separate installation of Infernal 1.1.2.
-The source code and prebuilt binaries can be obtained at
+tRNAscan-SE 2.0 requires separate installation of Infernal 1.1.2
+or above. The source code and prebuilt binaries can be obtained at
 http://eddylab.org/infernal/.
 
 The installation directory of Infernal should be the same as the one
